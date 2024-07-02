@@ -85,14 +85,14 @@ onMounted(async () => {
 </script>
 
 <template>
-  <SurveyCreatorComponent :model="creator" />
-  <div>
-    <div style="position: absolute; bottom: 10px; right: 50px;">
+      <div class="flex justify-end mt-2 edit-controls">
       <Button @click="save" icon="pi pi-save" :label="$t('general.save')" severity="success" />
     </div>
-  </div>
+  <SurveyCreatorComponent :model="creator" />
 </template>
 
 <style scoped>
-
+.edit-controls {
+  margin-bottom: 10px;
+}
 </style>
