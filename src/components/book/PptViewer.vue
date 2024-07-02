@@ -6,7 +6,7 @@
       </p>
       <div class="d-flex flex-row">
       <Button v-if="pptFilePath" @click="openPowerPoint" class="btn-view">
-        {{ $t('general.openPowerPoint') }}
+        {{ $t('general.open') }}
       </Button>
       <div v-if="editing" class="flex justify-end gap-2 edit-controls">
         <FileUpload mode="basic" name="ppt" accept=".ppt,.pptx"
