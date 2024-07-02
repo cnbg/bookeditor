@@ -1,13 +1,16 @@
 <template>
   <div>
     <div v-if="!editing" class="model-container" @mouseover="showEdit" @mouseleave="hideEdit">
+      <Fieldset>
       <model-viewer tone-mapping="neutral" shadow-intensity="1" ar camera-controls touch-action="pan-y"
-        :src="model.path" :alt="model.name" class="h-96 mx-auto w-full"></model-viewer>
+        :src="model.path" :alt="model.name" class="h-96 mx-auto w-full" >
+      </model-viewer>
+      </Fieldset>
       <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
     </div>
     <div v-else class="model-container">
       <div class="flex justify-end gap-2 edit-controls">
-        <FileUpload mode="basic" name="cover" accept=".obj,.fbx,.glb,.gltf,.stl,.amf,.iges,.max,.stp,.x3d,.vrml,.3ds,.3mf,.dae"
+        <FileUpload mode="basic" name="cover" accept=".obj,.fbx,.glb,.gltf,.stl,.amf,.iges,.max,.stp,.x3d,.vrml,.3ds,.3mf"
                   customUpload @uploader="fileUploader" auto
                   :chooseLabel="$t('general.select-file')" />
         <Button @click="deleteModel" icon="pi pi-trash" severity="danger" />
@@ -15,8 +18,11 @@
         <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger"
           severity="secondary" />
       </div>
+    <Fieldset>
       <model-viewer tone-mapping="neutral" shadow-intensity="1" ar camera-controls touch-action="pan-y"
-        :src="file.path || model.path" :alt="model.name" class="h-96 mx-auto w-full"></model-viewer>
+        :src="file.path || model.path" :alt="model.name" class="h-96 mx-auto w-full">
+      </model-viewer>
+    </Fieldset>
     </div>
   </div>
 </template>
@@ -37,7 +43,6 @@ const startEdit = () => {
 
 const saveEdit = () => {
   if (!file.value.path || file.value.path === props.model.path) {
-    // No changes made, do not save
     editing.value = false;
     return;
   }
@@ -88,6 +93,7 @@ const hideEdit = () => {
 .edit-button {
   width: 30px;
   height: 30px;
+  left:23px;
   padding: 0;
   font-size: 14px;
   position: absolute;
@@ -107,4 +113,6 @@ const hideEdit = () => {
 .edit-controls {
   margin-bottom: 10px;
 }
+
+
 </style>

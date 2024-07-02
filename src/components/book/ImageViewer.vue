@@ -140,7 +140,7 @@ const hideEdit = (index) => {
 <style scoped>
 .edit-button {
   top: 5px;
-  right: 5px;
+  left:5px;
   width: 30px;
   height: 30px;
   padding: 0;

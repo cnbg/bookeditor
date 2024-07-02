@@ -1,6 +1,7 @@
 <template>
   <div>
     <div v-if="!editing" class="video-container" @mouseover="showEdit" @mouseleave="hideEdit">
+      <Fieldset>
       <video-player
         v-if="video.path || file.path || defaultVideoPath"
         class="video-player vjs-big-play-centered"
@@ -24,6 +25,7 @@
         @canplaythrough="handleEvent($event)"
         @timeupdate="handleEvent(player?.currentTime())"
       />
+    </Fieldset>
       <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
     </div>
     <div v-else class="video-container">
@@ -41,6 +43,7 @@
         <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />
         <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger" severity="secondary" />
       </div>
+      <Fieldset>
       <video-player
         v-if="file.path || video.path || defaultVideoPath"
         class="video-player vjs-big-play-centered"
@@ -64,6 +67,7 @@
         @canplaythrough="handleEvent($event)"
         @timeupdate="handleEvent(player?.currentTime())"
       />
+    </Fieldset>
     </div>
   </div>
 </template>
@@ -152,6 +156,7 @@ const hideEdit = () => {
 .edit-button {
   width: 30px;
   height: 30px;
+  left:23px;
   padding: 0;
   font-size: 14px;
   position: absolute;
