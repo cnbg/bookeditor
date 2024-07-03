@@ -64,8 +64,8 @@ const items = ref([
   {label: t('general.add-image'), icon: 'pi pi-image', command: () => {bookSt.setEditor('image')}},
   {label: t('general.add-video'), icon: 'pi pi-video', command: () => {bookSt.setEditor('video')}},
   {label: t('general.add-model'), icon: 'pi pi-box', command: () => {bookSt.setEditor('model')}},
-  {label: t('general.add-test'), icon: 'pi pi-list', command: () => {dev()}},
-  {label: t('general.add-powerpoint'), icon: 'pi pi-file-plus', command: () => {dev()}},
+  {label: t('general.add-test'), icon: 'pi pi-list', command: () => {bookSt.setEditor('test')}},
+  {label: t('general.add-powerpoint'), icon: 'pi pi-file-plus', command: () => {bookSt.setEditor('powerpoint')}},
   
   {separator: true},
   {label: t('general.delete'), icon: 'pi pi-times', command: () => {confirmDeleteDialog()}},
