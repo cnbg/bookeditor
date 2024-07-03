@@ -84,4 +84,9 @@ export default {
     'select-file': 'Файл тандоо',
     'have-you-saved-your-work-before-closing': 'Жабуу алдында жумушуңузду сактап койдуңуз беле?',
     'link': 'Шилтеме',
+    'result':'Тесттин жыйынтыгы',
+    'correct-answers':'туура',
+    'incorrect-answers':'туура эмес',
+    'correctStr': 'Туура',
+    'inCorrectStr': 'Туура эмес'
 }

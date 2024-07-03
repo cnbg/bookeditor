@@ -84,4 +84,10 @@ export default {
     'select-file': 'Выберите file',
     'have-you-saved-your-work-before-closing': 'Вы сохранили свою работу перед закрытием?',
     'link': 'Ссылка',
+    'result':'Результат теста',
+    'correct-answers':'верных',
+    'incorrect-answers':'неверных',
+    'correctStr': 'Правильно',
+    'inCorrectStr': 'Неправильно'
+
 }
