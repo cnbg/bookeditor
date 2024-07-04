@@ -11,8 +11,7 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useBookStore } from '../../stores/book';
 import { useUserStore } from '../../stores/user';
-
-const props = defineProps({ html: { type: String, default: '' } });
+const props = defineProps(['html', 'backgroundColor']);
 const bookSt = useBookStore();
 const userSt = useUserStore();
 const content = ref("");

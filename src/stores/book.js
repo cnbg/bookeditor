@@ -148,7 +148,9 @@ export const useBookStore = defineStore('book', {
                     ...this.block,
                     ...{
                         id: uuid(),
-                        content: content,
+                        content: {
+                            html:content,
+                        },
                     },
                 })
 
@@ -172,11 +174,19 @@ export const useBookStore = defineStore('book', {
             this.editing = false
         },
         async updateBlockContent(index, updatedContent) {
+         /*    if (!updatedContent || typeof updatedContent !== 'object') {
+                console.error('Expected updatedContent to be an object:', updatedContent);
+                return;
+            } */
+        
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[index]) {
-                if (updatedContent.trim() === '') {
+                if (!updatedContent.html || updatedContent.html.trim() === '') {
                     this.chapter.blocks.splice(index, 1);
                 } else {
-                    this.chapter.blocks[index].content = updatedContent;
+                    this.chapter.blocks[index].content = {
+                        html: updatedContent.html,
+                        backgroundColor: updatedContent.backgroundColor || this.chapter.blocks[index].content.backgroundColor
+                    };
                 }
                 await this.saveBookToFile();
             }
@@ -236,6 +246,11 @@ export const useBookStore = defineStore('book', {
                 console.error('Cannot save book: missing file name.');
                 return;
             }
+            this.chapter.blocks.forEach(block => {
+                if (block.content && typeof block.content === 'object') {
+                  block.content.backgroundColor = block.content.backgroundColor || '';
+                }
+              });
             await window.electron.updateBook(JSON.parse(JSON.stringify(this.book)), this.bookFileName);
         },
         setEditor(type = 'html') {

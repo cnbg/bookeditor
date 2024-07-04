@@ -1,7 +1,7 @@
 <template>
   <div class="editor-container">
     <Button v-if="!editing" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
-    <div v-if="!editing" v-html="html" class="ql-editor"></div>
+    <div v-if="!editing" ref="htmlContent" class="ql-editor" :style="{ backgroundColor: backgroundColor }" v-html="html"></div>
     <div v-else>
       <div class="flex justify-end mt-2 edit-controls">
         <Button @click="saveEdit" :label="$t('general.save')" icon="pi pi-save" class="mr-2" severity="success" />
@@ -16,7 +16,7 @@
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useUserStore } from '../../stores/user';
 
-const props = defineProps({ html: { type: String, default: '' } });
+const props = defineProps(['html', 'backgroundColor']);
 const emit = defineEmits(['content-updated']);
 const userSt = useUserStore();
 const editorConfig = ref(getEditorConfig(userSt.darkMode));
@@ -24,6 +24,8 @@ const editing = ref(false);
 const editedContent = ref(props.html);
 const originalContent = ref(props.html);
 let editorInstance = null;
+const containerBackgroundColor = ref(''); 
+const textBackgroundColor = ref(''); 
 
 watch(() => userSt.darkMode, (newVal) => {
   editorConfig.value = getEditorConfig(newVal);
@@ -34,6 +36,7 @@ async function getTinyMCEBaseUrl() {
 }
 
 function getEditorConfig(isDarkMode) {
+  const borderColor = isDarkMode ? '#888888' : '#BEBEBE';
   return {
     license_key: 'gpl',
     base_url: '',
@@ -82,7 +85,23 @@ function getEditorConfig(isDarkMode) {
       editor.on('change', () => {
         editedContent.value = editor.getContent();
       });
+
+      editor.on('ExecCommand', (e) => {
+        if (e.command === 'mceApplyTextcolor' && e.value) {
+          textBackgroundColor.value = e.value;
+        } else if (e.command === 'mceApplyBackcolor' && e.value) {
+          containerBackgroundColor.value = e.value;
+        }
+      });
+
+      editor.on('SelectionChange', () => {
+        const selectedText = editor.selection.getContent({ format: 'text' }).trim();
+        if (selectedText === '') {
+          containerBackgroundColor.value = textBackgroundColor.value;
+        }
+      });
     },
+    content_style: `table { border-collapse: collapse; } table, th, td { border: 1px solid ${borderColor}; }`,
   };
 }
 
@@ -105,20 +124,43 @@ const saveEdit = () => {
   } else {
     const parser = new DOMParser();
     const doc = parser.parseFromString(editedContent.value, 'text/html');
+
+    const borderColor = userSt.darkMode ? '#888888' : '#BEBEBE';
+    
+    const tables = doc.querySelectorAll('table');
+    tables.forEach(table => {
+      table.style.borderColor = borderColor;
+      table.style.borderWidth = '1px';
+      table.style.borderStyle = 'solid';
+
+      const cells = table.querySelectorAll('td, th');
+      cells.forEach(cell => {
+        cell.style.borderColor = borderColor;
+        cell.style.borderWidth = '1px';
+        cell.style.borderStyle = 'solid';
+      });
+    });
+
     const links = doc.querySelectorAll('a');
     links.forEach(link => {
       link.style.color = 'blue';
       link.style.textDecoration = 'underline';
     });
+
     editedContent.value = doc.body.innerHTML;
     editing.value = false;
     originalContent.value = editedContent.value;
   }
-  if (originalContent.value !== props.html) {
-    emit('content-updated', originalContent.value);
-  }
+  const updatedContent = {
+    html: editedContent.value,
+    backgroundColor: containerBackgroundColor.value
+  };
+ 
+    emit('content-updated', updatedContent);
   destroyTinyMCE();
 };
+
+
 
 async function initTinyMCE() {
   const baseUrl = await getTinyMCEBaseUrl();
@@ -139,6 +181,15 @@ function destroyTinyMCE() {
 }
 
 onMounted(async () => {
+  if (props.html) {
+    let parsedContent;
+    try {
+      parsedContent = JSON.parse(props.html);
+      
+    } catch (error) {
+      editedContent.value = props.html; 
+    }
+  }
   const baseUrl = await getTinyMCEBaseUrl();
   tinymce.init({
     ...editorConfig.value,
