@@ -32,10 +32,11 @@ const sanitizeObject = (obj) => {
 };
 
 const generateFileName = (title) => {
-  const sanitizedTitle = title.replace(/[^a-zA-Z0-9]/g, '_');
+  const sanitizedTitle = title.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_');
   const randomNumber = Math.floor(Math.random() * 10000); 
   return `${sanitizedTitle}_${randomNumber}.json`;
 };
+
 
 const save = async () => {
     try {
