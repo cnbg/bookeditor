@@ -88,6 +88,7 @@ export default {
     'correct-answers':'верных',
     'incorrect-answers':'неверных',
     'correctStr': 'Правильно',
-    'inCorrectStr': 'Неправильно'
+    'inCorrectStr': 'Неправильно',
+    'export-book':'Экспортировать книгу в формате zip'
 
 }

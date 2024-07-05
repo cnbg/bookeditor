@@ -88,5 +88,6 @@ export default {
     'correct-answers':'туура',
     'incorrect-answers':'туура эмес',
     'correctStr': 'Туура',
-    'inCorrectStr': 'Туура эмес'
+    'inCorrectStr': 'Туура эмес',
+    'export-book':'Китепти zip форматында экспорттоо'
 }

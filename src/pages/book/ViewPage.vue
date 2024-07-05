@@ -5,14 +5,16 @@ import { useI18n } from 'vue-i18n'
 import { useUserStore } from '../../stores/user'
 import { useBookStore } from '../../stores/book'
 import { exportPdf } from '../../lib/exportpdf'
+import { exportBookAsZip } from '../../lib/exportzip'
+
 
 const props = defineProps({
-  bookId: {type: String, required: true},
-  chapterId: {type: String},
+  bookId: { type: String, required: true },
+  chapterId: { type: String },
 })
 
 const router = useRouter()
-const {t} = useI18n()
+const { t } = useI18n()
 const menu = ref(null)
 const page = ref(-1)
 const pager = ref(true)
@@ -29,25 +31,31 @@ const toggleMenu = (event) => {
 const panelMenuItems = ref([
   {
     label: t('general.edit'), icon: 'pi pi-pencil', command: () => {
-      router.push({name: 'book-edit', params: {bookId: props.bookId, chapterId: bookSt.chapter?.id}})
+      router.push({ name: 'book-edit', params: { bookId: props.bookId, chapterId: bookSt.chapter?.id } })
     },
   },
-  {separator: true},
+  { separator: true },
   {
     label: t('general.change-view-format'),
     icon: 'pi pi-images', command: () => { pager.value = !pager.value },
   },
-  {separator: true},
+  { separator: true },
   {
     label: t('general.send'), icon: 'pi pi-send', command: () => {
       showSendDialog.value = true
     },
   },
-  {separator: true},
+  { separator: true },
   {
     label: t('general.download-as-pdf'), icon: 'pi pi-download', command: () => {
       const html = document.querySelector('#html-content').innerHTML
       exportPdf(html, bookSt.book?.title)
+    },
+  },
+  { separator: true },
+  {
+    label: t('general.export-book'), icon: 'pi pi-upload', command: () => {
+      exportBookAsZip(bookSt.book)
     },
   },
 ])
@@ -55,17 +63,16 @@ const panelMenuItems = ref([
 let totalChapters = (bookSt.book?.chapters?.length || 1) - 1
 
 const goTo = (route, params = {}) => {
-  if(bookSt.editing) {
-    toast.add({severity: 'error', summary: t('general.dont-forget-to-save'), life: 4000})
+  if (bookSt.editing) {
+    toast.add({ severity: 'error', summary: t('general.dont-forget-to-save'), life: 4000 })
   } else {
     if (route === 'home') {
-      router.push({ path: '/' }); 
+      router.push({ path: '/' });
     } else {
       router.push({ name: route, params: params });
     }
   }
 }
-
 </script>
 
 <template>
