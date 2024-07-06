@@ -15,11 +15,17 @@ const search = ref('')
 const startRoutes = [
   {name: 'book-list', icon: 'pi pi-book', label: t('general.book-list')},
   {name: 'book-create', icon: 'pi pi-plus', label: t('general.add-book')},
-  {name: '', icon: 'pi pi-file-import', label: t('general.import'), disabled: true},
+  {name: 'import', icon: 'pi pi-file-import', label: t('general.import')},
 ]
 const endRoutes = [
   {name: 'user-settings', icon: 'pi pi-user', label: ''},
 ]
+
+const navigate = (name, disabled) => {
+  if (!disabled) {
+    router.push({ name });
+  }
+}
 </script>
 
 <template>
@@ -27,8 +33,9 @@ const endRoutes = [
     <Toolbar id="app-toolbar" class="bg-white dark:bg-surface-900">
       <template #start>
         <Button v-for="{name, icon, label, disabled} in startRoutes" :key="name"
-                @click="router.push({name: name})" :disabled="disabled"
-                text :severity="route.name === name ? 'success' : 'secondary'">
+                @click="navigate(name, disabled)" :disabled="disabled"
+                :text="true"
+                :severity="route.name === name ? 'success' : 'secondary'">
           <i :class="icon" class="mr-2"></i>{{ label }}
         </Button>
       </template>
@@ -47,8 +54,9 @@ const endRoutes = [
 
       <template #end>
         <Button v-for="{name, icon, label} in endRoutes" :key="name"
-                @click="router.push({name: name})"
-                text :severity="route.name === name ? 'success' : 'secondary'">
+                @click="navigate(name)"
+                :text="true"
+                :severity="route.name === name ? 'success' : 'secondary'">
           <i :class="icon"></i>{{ label }}
         </Button>
       </template>

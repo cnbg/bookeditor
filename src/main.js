@@ -5,6 +5,8 @@ import { dirname } from 'path';
 import fs from 'original-fs';
 const fsOld = require('fs');
 
+
+const fsPromises = fs.promises;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -106,6 +108,23 @@ if (!gotTheLock) {
         return { success: true, filePath: `/${relativePath}` };
     };
 
+    const saveImportedFile = async (fileContent, fileName, subdir) => {
+        const resourcesPath = process.resourcesPath;
+        const appPath = app.getAppPath();
+        let savePath;
+
+        if (!app.isPackaged) {
+            savePath = path.join(appPath, 'src', 'data', subdir, fileName);
+        } else {
+            savePath = path.join(resourcesPath, 'data', subdir, fileName);
+        }
+
+        await fsPromises.mkdir(path.dirname(savePath), { recursive: true });
+        await fsPromises.writeFile(savePath, Buffer.from(fileContent));
+
+        return { success: true, filePath: savePath };
+    };
+
     ipcMain.handle('upload-file', async (event, { filePath, fileName }) => {
         return saveFile(filePath, fileName, 'images');
     });
@@ -167,7 +186,7 @@ if (!gotTheLock) {
         try {
             const resourcesPath = process.resourcesPath;
             const appPath = app.getAppPath();
-
+            
             let booksDir;
 
             if (!app.isPackaged) {
@@ -307,5 +326,81 @@ if (!gotTheLock) {
         } catch (error) {
             return { success: false, message: error.message };
         }
+    });
+
+    ipcMain.handle('import-file', async (event, { fileContent, fileName }) => {
+        try {
+            const fileExtension = path.extname(fileName).toLowerCase();
+            let subdir;
+
+            switch (fileExtension) {
+                case '.json':
+                    subdir = 'books';
+                    break;
+                case '.png':
+                case '.jpg':
+                case '.jpeg':
+                case '.gif':
+                case '.bmp':
+                    subdir = 'images';
+                    break;
+                case '.mp4':
+                case '.avi':
+                case '.mov':
+                case '.wmv':
+                case '.flv':
+                    subdir = 'videos';
+                    break;
+                case '.obj':
+                case '.fbx':
+                case '.gltf':
+                case '.glb':
+                    subdir = 'models';
+                    break;
+                case '.ppt':
+                case '.pptx':
+                    subdir = 'ppt';
+                    break;
+                default:
+                    throw new Error('Unsupported file type');
+            }
+
+            return await saveImportedFile(fileContent, fileName, subdir);
+        } catch (error) {
+            console.error('Error importing file:', error);
+            return { success: false, message: error.message };
+        }
+    });
+
+    ipcMain.handle('import-book', async (event, book) => {
+        const saveBookFile = async (book, fileName, subdir) => {
+            const resourcesPath = process.resourcesPath;
+            const appPath = app.getAppPath();
+            let booksDir;
+            let bookPath;
+
+            if (!app.isPackaged) {
+                booksDir = path.join(appPath, 'src', 'data', subdir);
+                bookPath = path.join(booksDir, fileName);
+            } else {
+                booksDir = path.join(resourcesPath, 'data', subdir);
+                bookPath = path.join(booksDir, fileName);
+            }
+
+            await fsPromises.mkdir(booksDir, { recursive: true });
+            await fsPromises.writeFile(bookPath, JSON.stringify(book, null, 2));
+
+            return { success: true, message: 'Book saved successfully.' };
+        };
+
+        return saveBookFile(book, `${book.id}.json`, 'books');
+    });
+
+    ipcMain.handle('save-image', async (event, { filePath, fileName }) => {
+        return saveFile(filePath, fileName, 'images');
+    });
+
+    ipcMain.handle('save-book-file', async (event, { book, fileName }) => {
+        return saveBookFile(book, fileName, 'books');
     });
 }

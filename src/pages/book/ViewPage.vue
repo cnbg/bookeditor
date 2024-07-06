@@ -54,7 +54,7 @@ const panelMenuItems = ref([
   },
   { separator: true },
   {
-    label: t('general.export-book'), icon: 'pi pi-upload', command: () => {
+    label: t('general.export-book'), icon: 'pi pi-file-export', command: () => {
       exportBookAsZip(bookSt.book)
     },
   },

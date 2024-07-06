@@ -89,6 +89,11 @@ export default {
     'incorrect-answers':'неверных',
     'correctStr': 'Правильно',
     'inCorrectStr': 'Неправильно',
-    'export-book':'Экспортировать книгу в формате zip'
+    'export-book':'Экспортировать книгу в формате zip',
+    'import-book':'Импортировать книгу',
+    'import-successful':'Импорт книги выполнен успешно',
+    'import-failed':'Не удалось импортировать книгу',
+    'drop-here':'Перетащите файлы сюда или нажмите, чтобы загрузить',
+    'choose-zip-zile':'Выберите zip файл'
 
 }

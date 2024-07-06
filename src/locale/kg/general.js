@@ -89,5 +89,10 @@ export default {
     'incorrect-answers':'туура эмес',
     'correctStr': 'Туура',
     'inCorrectStr': 'Туура эмес',
-    'export-book':'Китепти zip форматында экспорттоо'
+    'export-book':'Китепти zip форматында экспорттоо',
+    'import-book':'Китепти импорттоо',
+    'import-successful':'Китеп импорттоо ийгиликтүү болду',
+    'import-failed':'Китеп импорттолбой калды',
+    'drop-here':'Файлды бул жерге таштаңыз же басыныз',
+    'choose-zip-zile':'zip файлын тандаңыз'
 }

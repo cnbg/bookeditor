@@ -16,5 +16,6 @@ contextBridge.exposeInMainWorld('electron', {
   resolvePath: (filePath) => ipcRenderer.invoke('resolve-path', filePath),
   isPackaged: () => ipcRenderer.invoke('is-packaged'),
   saveSurvey: (survey, fileName) => ipcRenderer.invoke('save-survey', survey, fileName),
-  getSurvey: (fileName) => ipcRenderer.invoke('get-survey', fileName)
+  getSurvey: (fileName) => ipcRenderer.invoke('get-survey', fileName),
+  saveImportedFile: (data) => ipcRenderer.invoke('import-file', data), 
 });

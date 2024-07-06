@@ -9,6 +9,7 @@ import BookEditPage from '../pages/book/EditPage.vue'
 import BookViewPage from '../pages/book/ViewPage.vue'
 import UserSettingsPage from '../pages/user/SettingsPage.vue'
 import NotFoundPage from '../components/error/NotFoundPage.vue';
+import ImportZipPage from '../pages/book/edit/ImportZipDialog.vue';
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -58,6 +59,11 @@ const router = createRouter({
             path: '/:fallback(.*)*',
             name: 'not-found',
             component: NotFoundPage,
+        },
+        {
+            path: '/import-zip',
+            name: 'import',
+            component: ImportZipPage,
         },
     ],
 })
