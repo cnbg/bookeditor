@@ -5,6 +5,7 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { useBookStore } from '../../stores/book'
 import { v4 as uuidv4 } from 'uuid';
+import Panel from 'primevue/panel';
 const { electron } = window;
 
 const props = defineProps({
@@ -82,6 +83,7 @@ const customBase64Uploader = async (event) => {
 
 <template>
   <TopMenu class="p-2" />
+  <Fieldset :legend="$t('general.add-book')">
   <div class="p-6 flex flex-col gap-5">
     <div>
       <label for="book-title">{{ $t('general.enter-title').concat('...') }}</label>
@@ -112,8 +114,13 @@ const customBase64Uploader = async (event) => {
     </div>
 
   </div>
+</Fieldset>
 </template>
 
 <style scoped>
-
+fieldset {
+  max-width:90%;
+  margin: 20px auto; 
+  
+}
 </style>
