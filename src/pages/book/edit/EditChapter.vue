@@ -123,7 +123,7 @@ const onCloseDialog = (ch = {}) => {
           <i class="pi pi-pencil"></i>
         </button>
         <div class="copy-link-container">
-          <button @click="copyLink" class="copy-link-button p-panel-header-icon p-link ml-6">
+          <button @click="copyLink" class="copy-link-button p-panel-header-icon p-link ml-6" v-tooltip="$t('general.Copy-link')">
             <i class="pi pi-link"></i>
           </button>
           <Dialog v-model:visible="linkCopied" modal style="max-width: 500px;">
