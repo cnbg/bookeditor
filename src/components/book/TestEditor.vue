@@ -57,14 +57,20 @@ creator.onQuestionAdded.add(function(sender, creatorOptions){
 const sfileName = 'survey_'+bookSt.bookFileName;
 
 creator.saveSurveyFunc = async () => {
-    try {
-        const response = await electron.saveSurvey(creator.text, sfileName);
-        if (!response.success) {
-            console.error('Error saving survey:', response.message);
-        }
-    } catch (error) {
-        console.error('Error survey:', error);
+  try {
+    const response = await electron.saveSurvey(creator.text, sfileName);
+    if (response.success) {
+      console.log('Survey saved successfully. Path:', response.path);
+      if (bookSt.block) {
+        bookSt.block.path = response.surveyPath;
+        
+      }
+    } else {
+      console.error('Error saving survey:', response.message);
     }
+  } catch (error) {
+    console.error('Error survey:', error);
+  }
 };
 
 const save = () => {

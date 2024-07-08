@@ -288,7 +288,7 @@ if (!gotTheLock) {
             const appPath = app.getAppPath();
             let surveyDir;
             let surveyPath;
-
+    
             if (!app.isPackaged) {
                 surveyDir = path.join(appPath, 'src', 'data', 'survey');
                 surveyPath = path.join(surveyDir, fileName);
@@ -296,15 +296,23 @@ if (!gotTheLock) {
                 surveyDir = path.join(resourcesPath, 'data', 'survey');
                 surveyPath = path.join(surveyDir, fileName);
             }
-
+    
             await fs.promises.mkdir(surveyDir, { recursive: true });
             await fs.promises.writeFile(surveyPath, survey);
-
-            return { success: true, path: surveyPath, name: fileName, message: 'Survey saved successfully.' };
+    
+            let relativePath;
+            if (app.isPackaged) {
+                relativePath = `../resources/data/survey/${fileName}`;
+            } else {
+                relativePath = path.relative(appPath, surveyPath).replace(/\\/g, '/');
+                
+            }
+            return { success: true, surveyPath: `/${relativePath}` };
         } catch (error) {
             return { success: false, message: error.message };
         }
     });
+    
 
     ipcMain.handle('get-survey', async (event, fileName) => {
         try {
