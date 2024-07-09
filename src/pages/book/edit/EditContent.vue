@@ -64,7 +64,7 @@ const items = ref([
   {label: t('general.add-image'), icon: 'pi pi-image', command: () => {bookSt.setEditor('image')}},
   {label: t('general.add-video'), icon: 'pi pi-video', command: () => {bookSt.setEditor('video')}},
   {label: t('general.add-model'), icon: 'pi pi-box', command: () => {bookSt.setEditor('model')}},
-  {label: t('general.add-test'), icon: 'pi pi-list', command: () => {bookSt.setEditor('test')}},
+  // {label: t('general.add-test'), icon: 'pi pi-list', command: () => {bookSt.setEditor('test')}},
   {label: t('general.add-powerpoint'), icon: 'pi pi-file-plus', command: () => {bookSt.setEditor('powerpoint')}},
   
   {separator: true},
@@ -96,7 +96,7 @@ const items = ref([
         <Button @click="bookSt.setEditor('image')" size="small" icon="pi pi-image" :label="t('general.add-image')" text />
         <Button @click="bookSt.setEditor('video')" size="small" icon="pi pi-video" :label="t('general.add-video')" text />
         <Button @click="bookSt.setEditor('model')" size="small" icon="pi pi-box" :label="t('general.add-model')" text />
-        <Button @click="bookSt.setEditor('test')" size="small" icon="pi pi-list" :label="t('general.add-test')" text />
+        <!-- <Button @click="bookSt.setEditor('test')" size="small" icon="pi pi-list" :label="t('general.add-test')" text /> -->
         <Button @click="bookSt.setEditor('powerpoint')" size="small" icon="pi pi-file-plus" :label="t('general.add-powerpoint')" text />
         
       </div>
