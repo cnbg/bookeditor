@@ -49,7 +49,7 @@ const handleFileChange = async (event) => {
 
   try {
     const zip = await JSZip.loadAsync(file);
-    const folderNames = ['books', 'images', 'videos', 'models', 'ppt'];
+    const folderNames = ['books', 'images', 'videos', 'models', 'ppt', 'survey'];
 
     await Promise.all(folderNames.map(async (folder) => {
       const folderEntries = zip.folder(folder);
@@ -73,6 +73,8 @@ const handleFileChange = async (event) => {
                 subdir = 'models'; break;
               case 'ppt':
                 subdir = 'ppt'; break;
+             case 'survey':
+                subdir = 'survey'; break;
               default:
                 subdir = 'books'; break;
             }

@@ -338,47 +338,51 @@ if (!gotTheLock) {
 
     ipcMain.handle('import-file', async (event, { fileContent, fileName }) => {
         try {
-            const fileExtension = path.extname(fileName).toLowerCase();
-            let subdir;
-
-            switch (fileExtension) {
-                case '.json':
-                    subdir = 'books';
-                    break;
-                case '.png':
-                case '.jpg':
-                case '.jpeg':
-                case '.gif':
-                case '.bmp':
-                    subdir = 'images';
-                    break;
-                case '.mp4':
-                case '.avi':
-                case '.mov':
-                case '.wmv':
-                case '.flv':
-                    subdir = 'videos';
-                    break;
-                case '.obj':
-                case '.fbx':
-                case '.gltf':
-                case '.glb':
-                    subdir = 'models';
-                    break;
-                case '.ppt':
-                case '.pptx':
-                    subdir = 'ppt';
-                    break;
-                default:
-                    throw new Error('Unsupported file type');
-            }
-
-            return await saveImportedFile(fileContent, fileName, subdir);
+          const fileExtension = path.extname(fileName).toLowerCase();
+          let subdir;
+      
+          switch (fileExtension) {
+            case '.json':
+              if (fileName.toLowerCase().includes('survey')) {
+                subdir = 'survey';
+              } else {
+                subdir = 'books';
+              }
+              break;
+            case '.png':
+            case '.jpg':
+            case '.jpeg':
+            case '.gif':
+            case '.bmp':
+              subdir = 'images';
+              break;
+            case '.mp4':
+            case '.avi':
+            case '.mov':
+            case '.wmv':
+            case '.flv':
+              subdir = 'videos';
+              break;
+            case '.obj':
+            case '.fbx':
+            case '.gltf':
+            case '.glb':
+              subdir = 'models';
+              break;
+            case '.ppt':
+            case '.pptx':
+              subdir = 'ppt';
+              break;
+            default:
+              throw new Error('Unsupported file type');
+          }
+      
+          return await saveImportedFile(fileContent, fileName, subdir);
         } catch (error) {
-            console.error('Error importing file:', error);
-            return { success: false, message: error.message };
+          console.error('Error importing file:', error);
+          return { success: false, message: error.message };
         }
-    });
+      });
 
     ipcMain.handle('import-book', async (event, book) => {
         const saveBookFile = async (book, fileName, subdir) => {
