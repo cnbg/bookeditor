@@ -3,6 +3,7 @@ export default {
     'book-deleted': 'Книга удалена',
     'book-list': 'Список книг',
     'books': 'Книги',
+    'books': 'Книга',
     'category': 'Категория',
     'confirm': 'Подтвердить',
     'create-new-book': 'Добавить новую книгу',

@@ -3,6 +3,7 @@ export default {
     'book-deleted': 'Китеп өчүрүлдү',
     'book-list': 'Китептер тизмеги',
     'books': 'Китептер',
+    'books': 'Китеп',
     'category': 'Категория',
     'confirm': 'Тастыктоо',
     'create-new-book': 'Жаңы китеп кошуу',
