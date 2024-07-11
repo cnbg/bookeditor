@@ -49,6 +49,23 @@ if (!gotTheLock) {
             mainWindow = null;
         });
 
+   
+        //comment
+        mainWindow.webContents.session.clearCache(); // Clear cache to avoid issues with refresh
+        mainWindow.webContents.on('did-fail-load', () => {
+            if (app.isPackaged) {
+                mainWindow.loadFile(path.join(__dirname, `../renderer/${MAIN_WINDOW_VITE_NAME}/index.html`));
+            }
+        });
+        mainWindow.webContents.on('did-finish-load', () => {
+            if (app.isPackaged) {
+                mainWindow.webContents.send('app-version', app.getVersion());
+            }
+        });
+
+        //comment
+
+
         if (!app.isPackaged) {
             mainWindow.webContents.openDevTools();
         }
