@@ -70,6 +70,9 @@ export const useBookStore = defineStore('book', {
         },
         async updateBook(book) {
             this.books = this.books?.map(b => b.id === book.id ? book : b)
+            if (!this.bookFileName) {
+                this.bookFileName = await window.electron.getBookFileName(book.id);
+            }
             await window.electron.updateBook(JSON.parse(JSON.stringify(book)), this.bookFileName)
         },
         async deleteBook(bookId) {
@@ -119,6 +122,26 @@ export const useBookStore = defineStore('book', {
 
             await window.electron.updateBook(JSON.parse(JSON.stringify(this.book)), this.bookFileName)
         },
+        async reorderChapters(newOrder) {
+            this.book.chapters = this.updateChapterOrder(this.book.chapters, newOrder);
+            await this.updateBook(this.book);  // This will save the changes to the file
+        },
+
+        updateChapterOrder(originalChapters, newOrder) {
+            const updatedChapters = [...originalChapters];
+
+            newOrder.forEach((chapter, index) => {
+              const originalIndex = updatedChapters.findIndex(c => c.id === chapter.id);
+              if (originalIndex !== -1) {
+                updatedChapters[originalIndex] = { ...updatedChapters[originalIndex], order: index };
+              }
+            });
+
+            // Sort the chapters based on the new order
+            updatedChapters.sort((a, b) => a.order - b.order);
+
+            return updatedChapters;
+        },
         deleteChapter() {
             if(this.book && this.chapter) {
                 this.book.chapters = this.book.chapters.filter(ch => ch.id !== this.chapter.id)
@@ -142,7 +165,8 @@ export const useBookStore = defineStore('book', {
         saveBlock(content = '') {
             if(content.length > 0 ||
                 content.path?.length > 0 ||
-                content.src?.length > 0
+                content.src?.length > 0 ||
+                content.testId?.length > 0
             ) {
                 this.chapter?.blocks?.push({
                     ...this.block,
@@ -153,7 +177,7 @@ export const useBookStore = defineStore('book', {
                         },
                     },
                 })
-
+                console.log(this.chapter);
                 this.updateChapter(this.chapter)
             }
             this.block = null
@@ -167,18 +191,46 @@ export const useBookStore = defineStore('book', {
             //         content: content,
             //     },
             // })
-            //
+
             // this.updateChapter(this.chapter)
 
             this.block = null
             this.editing = false
+        },
+        updateOrCreateTestBlock(content) {
+            if (this.chapter && this.chapter.blocks) {
+                const testBlockIndex = this.chapter.blocks.findIndex(block => block.type === 'test');
+                if (testBlockIndex !== -1) {
+                    // Update existing test block
+                    this.chapter.blocks[testBlockIndex] = {
+                        ...this.chapter.blocks[testBlockIndex],
+                        content: {
+                            html: {
+                                testId: content.testId
+                            }
+                        }
+                    };
+                } else {
+                    // Create new test block
+                    this.chapter.blocks.push({
+                        id: crypto.randomUUID(),
+                        type: 'test',
+                        content: {
+                            html: {
+                                testId: content.testId
+                            }
+                        }
+                    });
+                }
+                this.updateChapter(this.chapter);
+            }
         },
         async updateBlockContent(index, updatedContent) {
          /*    if (!updatedContent || typeof updatedContent !== 'object') {
                 console.error('Expected updatedContent to be an object:', updatedContent);
                 return;
             } */
-        
+
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[index]) {
                 if (!updatedContent.html || updatedContent.html.trim() === '') {
                     this.chapter.blocks.splice(index, 1);
@@ -191,7 +243,7 @@ export const useBookStore = defineStore('book', {
                 await this.saveBookToFile();
             }
         },
-        
+
         async updateImageBlock(blockIndex, imageIndex, updatedImage) {
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[blockIndex] && this.chapter.blocks[blockIndex].content[imageIndex]) {
               this.chapter.blocks[blockIndex].content[imageIndex] = updatedImage;
@@ -234,7 +286,6 @@ export const useBookStore = defineStore('book', {
               await this.saveBookToFile();
             }
           },
-      
           async deletePptBlock(blockIndex) {
             if (this.chapter && this.chapter.blocks) {
               this.chapter.blocks.splice(blockIndex, 1);
@@ -250,7 +301,7 @@ export const useBookStore = defineStore('book', {
                 if (block.content && typeof block.content === 'object') {
                   block.content.backgroundColor = block.content.backgroundColor || '';
                 }
-              });
+            });
             await window.electron.updateBook(JSON.parse(JSON.stringify(this.book)), this.bookFileName);
         },
         setEditor(type = 'html') {
@@ -270,8 +321,8 @@ export const useBookStore = defineStore('book', {
               }
             }
           },
-          
-          
+
+
         closeEditor() {
             this.editing = false
             this.block = null
@@ -281,7 +332,7 @@ export const useBookStore = defineStore('book', {
                 ...{
                     id: '',
                     parent: null,
-                    book_id: bookId, 
+                    book_id: bookId,
                     title: '',
                     desc: '',
                     tags: [],

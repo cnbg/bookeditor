@@ -27,7 +27,7 @@
               <div class="flex items-center mt-4">
                 <InputText v-model="copiedLink" class="w-[25rem] mr-2" readonly />
                 <Button @click="copyToClipboard"
-                v-tooltip="$t('general.Copy')">              
+                v-tooltip="$t('general.Copy')">
                   <i class="pi pi-copy"></i>
                 </Button>
               </div>
@@ -104,7 +104,7 @@ const copyLink = () => {
 
 const copyToClipboard = () => {
   navigator.clipboard.writeText(copiedLink.value)
-    .then(() => {     
+    .then(() => {
       toast.add({severity: 'success', summary: t('general.link-copied'), life: 1000})
       setTimeout(() => {
         linkCopied.value = false

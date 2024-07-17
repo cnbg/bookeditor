@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fs from 'original-fs';
 const fsOld = require('fs');
-
+const { exec } = require('child_process');
 
 const fsPromises = fs.promises;
 const __filename = fileURLToPath(import.meta.url);
@@ -62,6 +62,19 @@ if (!gotTheLock) {
                 createWindow();
             }
         });
+
+        app.setAsDefaultProtocolClient('bookEditor');
+    });
+
+    app.on('open-url', (event, url) => {
+        event.preventDefault();
+        // Parse the URL and handle it accordingly
+        const testId = url.replace('bookEditor://test/', '');
+        // You can now use this testId to open the specific test in your second app
+        // For example, you might want to send this to your renderer process
+        if (mainWindow) {
+          mainWindow.webContents.send('open-test', testId);
+        }
     });
 
     app.on('window-all-closed', () => {
@@ -186,7 +199,7 @@ if (!gotTheLock) {
         try {
             const resourcesPath = process.resourcesPath;
             const appPath = app.getAppPath();
-            
+
             let booksDir;
 
             if (!app.isPackaged) {
@@ -288,7 +301,7 @@ if (!gotTheLock) {
             const appPath = app.getAppPath();
             let surveyDir;
             let surveyPath;
-    
+
             if (!app.isPackaged) {
                 surveyDir = path.join(appPath, 'src', 'data', 'survey');
                 surveyPath = path.join(surveyDir, fileName);
@@ -296,23 +309,23 @@ if (!gotTheLock) {
                 surveyDir = path.join(resourcesPath, 'data', 'survey');
                 surveyPath = path.join(surveyDir, fileName);
             }
-    
+
             await fs.promises.mkdir(surveyDir, { recursive: true });
             await fs.promises.writeFile(surveyPath, survey);
-    
+
             let relativePath;
             if (app.isPackaged) {
                 relativePath = `../resources/data/survey/${fileName}`;
             } else {
                 relativePath = path.relative(appPath, surveyPath).replace(/\\/g, '/');
-                
+
             }
             return { success: true, surveyPath: `/${relativePath}` };
         } catch (error) {
             return { success: false, message: error.message };
         }
     });
-    
+
 
     ipcMain.handle('get-survey', async (event, fileName) => {
         try {
@@ -340,7 +353,7 @@ if (!gotTheLock) {
         try {
           const fileExtension = path.extname(fileName).toLowerCase();
           let subdir;
-      
+
           switch (fileExtension) {
             case '.json':
               if (fileName.toLowerCase().includes('survey')) {
@@ -376,7 +389,7 @@ if (!gotTheLock) {
             default:
               throw new Error('Unsupported file type');
           }
-      
+
           return await saveImportedFile(fileContent, fileName, subdir);
         } catch (error) {
           console.error('Error importing file:', error);
@@ -414,5 +427,57 @@ if (!gotTheLock) {
 
     ipcMain.handle('save-book-file', async (event, { book, fileName }) => {
         return saveBookFile(book, fileName, 'books');
+    });
+
+    ipcMain.handle('import-survey-file', async () => {
+        try {
+          const { canceled, filePaths } = await dialog.showOpenDialog({
+            properties: ['openFile'],
+            filters: [{ name: 'JSON', extensions: ['json'] }]
+          });
+
+          if (!canceled && filePaths.length > 0) {
+            const content = await fs.readFile(filePaths[0], 'utf8');
+            return { success: true, data: content };
+          } else {
+            return { success: false, message: 'File selection was cancelled' };
+          }
+        } catch (error) {
+          console.error('Error importing survey file:', error);
+          return { success: false, message: error.message };
+        }
+    });
+
+    ipcMain.handle('open-external', async (event, url) => {
+        try {
+          await shell.openExternal(url);
+          return { success: true };
+        } catch (error) {
+          console.error('Failed to open external URL:', error);
+          return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('open-test-viewer', async (event, testId) => {
+        try {
+            const currentDir = path.dirname(app.getPath('exe'));
+            const testViewerPath = path.join(currentDir, '..', 'testviewer', 'TestViewer.exe');
+            // const testViewerPath = path.join(currentDir, 'testviewer', 'TestViewer.exe');
+            const command = `"${testViewerPath}" --testId="${testId}"`;
+
+            exec(command, (error, stdout, stderr) => {
+            if (error) {
+                console.error(`exec error: ${error}`);
+                return;
+            }
+            if (stdout) console.log(`stdout: ${stdout}`);
+            if (stderr) console.error(`stderr: ${stderr}`);
+            });
+
+            return { success: true };
+        } catch (error) {
+            console.error('Failed to open TestViewer:', error);
+            return { success: false, error: error.message };
+        }
     });
 }

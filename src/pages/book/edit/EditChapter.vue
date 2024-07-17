@@ -1,15 +1,16 @@
 <script setup>
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useToast } from 'primevue/usetoast';
 import { useI18n } from 'vue-i18n';
 import { useBookStore } from '../../../stores/book';
 import EditChapterDialog from './EditChapterDialog.vue';
-
+import draggable from 'vuedraggable';
 
 const props = defineProps({
-  chapters: { type: Array, default: [] },
+  chapters: { type: Array, default: () => [] },
   search: { type: String, default: '' },
+  parentId: { type: String, default: null },
 });
 
 const router = useRouter();
@@ -23,6 +24,42 @@ const showEditDialog = ref(false);
 const chapter = ref({});
 const linkCopied = ref(false);
 const copiedLink = ref('');
+const expandedChapters = ref(new Set());
+
+const draggableChapters = computed({
+  get: () => props.chapters,
+  set: async (value) => {
+    try {
+      await bookSt.reorderChapters(value);
+      toast.add({ severity: 'success', summary: t('general.chapters-reordered'), life: 3000 });
+    } catch (error) {
+      console.error('Error reordering chapters:', error);
+      toast.add({ severity: 'error', summary: t('general.reorder-failed'), detail: error.message, life: 3000 });
+    }
+  }
+});
+
+const toggleChapter = (chapter) => {
+  if (expandedChapters.value.has(chapter.id)) {
+    expandedChapters.value.delete(chapter.id);
+  } else {
+    expandedChapters.value.add(chapter.id);
+  }
+};
+
+const isExpanded = (chapterId) => expandedChapters.value.has(chapterId);
+
+const showAddButton = (chapter) => {
+  return !chapter.parent && chapter.items === 0;
+};
+
+const addNewChapter = (parentId = null) => {
+  chapter.value = bookSt.chapterObj({
+    parent: parentId,
+    book_id: bookSt.book.id,
+  });
+  showEditDialog.value = true;
+};
 
 const select = (chapter) => {
   if(bookSt.editing) {
@@ -34,8 +71,6 @@ const select = (chapter) => {
       bookSt.chapter = chapter
       bookSt.chapter.expanded = true
     }
-
-    router.push({name: 'book-edit', params: {bookId: bookSt.book.id, chapterId: bookSt.chapter?.id}})
   }
 }
 
@@ -73,41 +108,109 @@ const showOverlay = (event, chapter) => {
   overlayPanel.value.toggle(event);
 };
 
-const onCloseDialog = (ch = {}) => {
+const onCloseDialog = async (ch = {}) => {
   const plainCh = JSON.parse(JSON.stringify(ch));
 
   if (plainCh.id) {
-    bookSt.updateChapter(plainCh);
+    await bookSt.updateChapter(plainCh);
   } else {
-    plainCh.book_id = bookSt.book.id;
-    bookSt.saveChapter(plainCh);
+    await bookSt.saveChapter(plainCh);
   }
   chapter.value = {};
   showEditDialog.value = false;
 };
-</script>
 
+const onDragStart = (evt) => {
+  evt.item.style.opacity = 0.5;
+};
+
+const onDragEnd = (evt) => {
+  evt.item.style.opacity = 1;
+  bookSt.saveBookToFile();
+};
+
+const handleChapterClick = (chapter, event) => {
+  // If the click is on the add button, don't select the chapter
+  if (event.target.closest('.add-chapter-btn')) {
+    return;
+  }
+
+  if (showAddButton(chapter)) {
+    addNewChapter(chapter.id);
+  } else {
+    select(chapter);
+    if (chapter.items > 0) {
+      toggleChapter(chapter);
+    }
+  }
+  event.stopPropagation();
+};
+
+</script>
 <template>
-  <div>
-    <div v-for="chapter in chapters" :key="chapter.id">
-      <Button class="btn-chapter my-1 mx-0 w-full flex items-center focus:ring-0"
-              :severity="bookSt.chapter?.id === chapter.id ? 'success' : ''"
-              :text="bookSt.chapter?.id !== chapter.id"
-              size="small"
-              :outlined="bookSt.chapter?.id === chapter.id"
-              @contextmenu.prevent="showOverlay($event, chapter)">
-        <i v-if="chapter.items > 0"
-           @click="chapter.expanded = !chapter.expanded"
-           class="p-2 pi"
-           :class="chapter.expanded ? 'pi-chevron-down' : 'pi-chevron-right'"></i>
-        <span @click="select(chapter)"
+  <div class="sidebar-zone" style="height: 100%;">
+    <draggable
+      v-model="draggableChapters"
+      group="chapters"
+      @start="onDragStart"
+      @end="onDragEnd"
+      item-key="id"
+    >
+      <template #item="{ element: chapter }">
+        <div class="chapter-item-container">
+          <Button
+            class="btn-chapter my-1 mx-0 w-full flex items-center focus:ring-0"
+            :class="{ 'selected': bookSt.chapter?.id === chapter.id }"
+            :severity="bookSt.chapter?.id === chapter.id ? 'success' : ''"
+            :text="bookSt.chapter?.id !== chapter.id"
+            size="small"
+            :outlined="bookSt.chapter?.id === chapter.id"
+            @click="handleChapterClick(chapter, $event)"
+            @contextmenu.prevent="showOverlay($event, chapter)"
+          >
+            <i
+              :class="[
+                'p-2 pi',
+                chapter.items > 0 ? (isExpanded(chapter.id) ? 'pi-bookmark-fill' : 'pi-bookmark') : '',
+                !chapter.parent ? 'pi-bookmark' : ''
+              ]"
+            ></i>
+            <span
               class="flex-auto py-1 px-1 text-left"
-              :class="{'ml-8': chapter.items === 0}">{{ chapter.title }}</span>
-      </Button>
-      <div v-if="chapter.items > 0" v-show="chapter.expanded" class="ml-4">
-        <EditChapter :chapters="bookSt.getChapters(chapter.id)" />
-      </div>
-    </div>
+              :class="{'ml-0': chapter.parent && chapter.items === 0}"
+            >
+              <i
+                v-if="chapter.parent && chapter.items === 0"
+                class="pi pi-circle-fill fs-2"
+                style="font-size: 6px; top: -1px; position: relative; padding-right: 7px;"
+              ></i>
+              {{ chapter.title }}
+            </span>
+          </Button>
+          <Button
+            v-if="!isExpanded(chapter.id)"
+            class="add-chapter-btn"
+            icon="pi pi-plus"
+            @click.stop="addNewChapter(chapter.id)"
+            v-tooltip="$t('general.add-subchapter')"
+          />
+          <div v-if="chapter.items > 0 && isExpanded(chapter.id)" class="ml-4">
+            <EditChapter :chapters="bookSt.getChapters(chapter.id)" :parentId="chapter.id" />
+          </div>
+        </div>
+      </template>
+    </draggable>
+
+    <Button
+      v-if="parentId === null"
+      class="new-chapter-btn my-1 mx-0 w-full p-panel-header-icon p-link"
+      severity="secondary"
+      text
+      @click="addNewChapter()"
+    >
+      <i class="pi pi-plus-circle mr-2"></i>
+      {{ $t('general.new-chapter') }}
+    </Button>
 
     <OverlayPanel ref="overlayPanel">
       <template #default>
@@ -142,27 +245,68 @@ const onCloseDialog = (ch = {}) => {
     </OverlayPanel>
 
     <Dialog v-model:visible="showEditDialog" modal :header="$t('general.add-chapter')" class="w-30rem">
-        <EditChapterDialog :chapter="chapter" :bookId="bookSt.book.id" @close="onCloseDialog" />
-      </Dialog>
+      <EditChapterDialog :chapter="chapter" :bookId="bookSt.book.id" @close="onCloseDialog" />
+    </Dialog>
   </div>
 </template>
 
 <style scoped>
+.chapter-item-container {
+  position: relative;
+}
+
 .btn-chapter {
-  padding: 0;
+  padding: 0 30px 0 0;
   outline: none !important;
 }
-.copy-link-container {
-  position: relative;
-  display: inline-block;
+
+.btn-chapter.selected {
+  font-weight: bold;
 }
-.copy-link-container .copy-link-button {
-  margin-right: 10px;
-}
-.fade-enter-active, .fade-leave-active {
-  transition: opacity 0.5s;
-}
-.fade-enter, .fade-leave-to {
+
+.add-chapter-btn {
+  position: absolute;
+  right: 5px;
+  top: 50%;
+  transform: translateY(-50%);
   opacity: 0;
+  transition: opacity 0.3s ease;
+  padding: 4px;
+  margin: 0;
+  background: none;
+  color: var(--primary-600);
+  font-size: 12px;
+  border-radius: 50%;
+  height: 20px;
+  width: 20px;
+}
+
+.chapter-item-container:hover > .add-chapter-btn {
+  opacity: 1;
+}
+
+.new-chapter-btn {
+  background: #dcfbff;
+  border: 1px dashed #ccc;
+  transition: all 0.3s ease;
+  padding: 5px 0;
+}
+
+.new-chapter-btn:hover {
+  background-color: #f0f0f0;
+  border-color: #999;
+}
+
+.new-chapter-btn i {
+  font-size: 14px;
+}
+
+.sortable-ghost {
+  opacity: 0.5;
+  background: #c8ebfb;
+}
+
+.sortable-drag {
+  opacity: 0.5;
 }
 </style>

@@ -1,6 +1,6 @@
 {
   "name": "bookeditor",
-  "productName": "Book Editor",
+  "productName": "BookEditor",
   "version": "1.0.0",
   "description": "Book editor/viewer application",
   "keywords": [
@@ -66,6 +66,7 @@
     "vue-3d-model": "^2.0.0-alpha.4",
     "vue-i18n": "^9.13.1",
     "vue-router": "^4.3.2",
-    "vue-video-player": "^6.0.0"
+    "vue-video-player": "^6.0.0",
+    "vuedraggable": "^4.1.0"
   }
 }

@@ -17,5 +17,8 @@ contextBridge.exposeInMainWorld('electron', {
   isPackaged: () => ipcRenderer.invoke('is-packaged'),
   saveSurvey: (survey, fileName) => ipcRenderer.invoke('save-survey', survey, fileName),
   getSurvey: (fileName) => ipcRenderer.invoke('get-survey', fileName),
-  saveImportedFile: (data) => ipcRenderer.invoke('import-file', data), 
+  saveImportedFile: (data) => ipcRenderer.invoke('import-file', data),
+  importSurveyFile: () => ipcRenderer.invoke('import-survey-file'),
+  openExternal: (url) => ipcRenderer.invoke('open-external', url),
+  openTestViewer: (testId) => ipcRenderer.invoke('open-test-viewer', testId),
 });

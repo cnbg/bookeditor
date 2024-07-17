@@ -1,104 +1,81 @@
-<script lang="ts" setup>
+<script setup>
+import { ref, onMounted, computed } from 'vue';
 import { useBookStore } from '../../stores/book';
-import 'survey-core/defaultV2.min.css';
-import "survey-creator-core/survey-creator-core.min.css";
-import { ref, onMounted } from 'vue';
-import { SurveyCreatorModel, localization } from "survey-creator-core";
-import type { ICreatorOptions, ICreatorPlugin } from "survey-creator-core";
-import { Serializer } from "survey-core";
-
-const electron = (window as any).electron;
-
-const props = defineProps({
-  bookId: {type: String, required: true},
-  chapterId: {type: String},
-})
+import { useToast } from 'primevue/usetoast';
+import { useI18n } from 'vue-i18n';
 
 const bookSt = useBookStore();
+const toast = useToast();
+const { t } = useI18n();
 
-localization.getLocale("ru");
-Serializer.addProperty("question", {name:"tag", category: "general"});
-Serializer.findProperty("question", "tag").readOnly = true;
+const testId = ref('');
+const newTestId = ref('');
 
-function guid() {
-    function s4() {
-        return Math.floor((1 + Math.random()) * 0x10000)
-            .toString(16)
-            .substring(1);
-    }
-    return s4() + s4() + '-' + s4() + '-' + s4() + '-' +
-        s4() + '-' + s4() + s4() + s4();
-}
-
-const creatorOptions: ICreatorOptions = {
-    showLogicTab: true,
-    isAutoSave: true,
-    showDesignerTab: true,
-    showTestSurveyTab: true,
-    showTranslationTab: false,
-    showJSONEditorTab: false,
-    showThemeTab: false,
-    showToolbox: false
-};
-
-const creator = new SurveyCreatorModel(creatorOptions);
-creator.toolbox.allowExpandMultipleCategories = false;
-creator.toolbox.showCategoryTitles = false;
-creator.allowModifyPages = false;
-
-var questionCounter = 1;
-creator.onQuestionAdded.add(function(sender, creatorOptions){
-    var q = creatorOptions.question;
-    q.tag = guid();
-    questionCounter ++;
-});
-
-// let data = bookSt.getBook(props.bookId, props.chapterId)
-const sfileName = 'survey_'+bookSt.bookFileName;
-
-creator.saveSurveyFunc = async () => {
-  try {
-    const response = await electron.saveSurvey(creator.text, sfileName);
-    if (response.success) {
-      console.log('Survey saved successfully. Path:', response.path);
-      if (bookSt.block) {
-        bookSt.block.path = response.surveyPath;
-        
-      }
-    } else {
-      console.error('Error saving survey:', response.message);
-    }
-  } catch (error) {
-    console.error('Error survey:', error);
+const updateTestId = () => {
+  if (newTestId.value) {
+    testId.value = newTestId.value;
+    saveTestId();
+    toast.add({ severity: 'success', summary: t('general.test-id-updated'), detail: t('general.new-test-id-saved'), life: 3000 });
+  } else {
+    toast.add({ severity: 'error', summary: t('general.invalid-test-id'), detail: t('general.please-enter-valid-test-id'), life: 3000 });
   }
 };
 
-const save = () => {
-  let fileNameS = 'survey_'+bookSt.bookFileName;
-  bookSt.block?.id ? bookSt.updateBlock(fileNameS) : bookSt.saveBlock(fileNameS);
-}
+const saveTestId = () => {
+  const content = {
+    testId: testId.value,
+  };
+  bookSt.updateOrCreateTestBlock(content);
+};
 
-onMounted(async () => {
+const testViewerUrl = computed(() => {
+  return testId.value ? `testviewer:test/${testId.value}` : null;
+});
+
+const openInTestViewer = async () => {
+  if (testId.value) {
+    console.log('Opening TestViewer with testId:', testId.value);
     try {
-        const response = await electron.getSurvey(sfileName);
-        if (response.success) {
-          creator.JSON = response.data;
-        }
+      const result = await window.electron.openTestViewer(testId.value);
+      console.log('openTestViewer result:', result);
+      if (result.success) {
+        toast.add({ severity: 'success', detail: t('general.testviewer-opened'), life: 3000 });
+      } else {
+        throw new Error(result.error);
+      }
     } catch (error) {
-        console.error('Error initializing survey model:', error);
+      console.error('Failed to open TestViewer:', error);
+      toast.add({ severity: 'error', detail: t('general.cannot-open-testviewer'), life: 3000 });
     }
+  } else {
+    console.error('No test ID available');
+    toast.add({ severity: 'error', summary: t('general.no-test-id'), detail: t('general.no-test-id-found'), life: 3000 });
+  }
+};
+
+onMounted(() => {
+  const testBlock = bookSt.chapter?.blocks.find(x => x.type === 'test');
+  if (testBlock && testBlock.content && testBlock.content.html && testBlock.content.html.testId) {
+    testId.value = testBlock.content.html.testId;
+    newTestId.value = testId.value;
+  } else {
+    testId.value = '';
+    newTestId.value = '';
+  }
 });
 </script>
 
 <template>
-      <div class="flex justify-end mt-2 edit-controls">
-      <Button @click="save" icon="pi pi-save" :label="$t('general.save')" severity="success" />
+  <div>
+    <div class="flex flex-wrap justify-between gap-5 mb-4">
+      <div class="flex items-center">
+        <InputText id="testId" v-model="newTestId" :placeholder="$t('general.enter-test-id')" />
+        <Button @click="updateTestId" icon="pi pi-check" :label="$t('general.update-test-id')" class="ml-2" />
+      </div>
     </div>
-  <SurveyCreatorComponent :model="creator" />
+    <div v-if="testId" class="mb-4">
+      <strong>{{ $t('general.current-test-id') }}:</strong> {{ testId }}
+      <Button v-if="testViewerUrl" @click="openInTestViewer" icon="pi pi-external-link" :label="$t('general.open-in-test-viewer')" severity="info" class="ml-2" />
+    </div>
+  </div>
 </template>
-
-<style scoped>
-.edit-controls {
-  margin-bottom: 10px;
-}
-</style>

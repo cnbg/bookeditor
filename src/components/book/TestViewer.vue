@@ -1,180 +1,74 @@
 <script setup lang="ts">
-import { Model } from "survey-core";
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useUserStore } from '../../stores/user'; 
-import { DefaultLight } from "survey-core/themes/default-light";
-import { BorderlessDark } from "survey-core/themes/borderless-dark";
+import { useToast } from 'primevue/usetoast';
 
-const props = defineProps(['test']);
+const props = defineProps({
+  test: { type: Object, required: true }
+});
+
 const electron = (window as any).electron;
-const json = ref<JSON>({});
-const survey = new Model();
-const result = new Model();
-const showDialog = ref(false);
-const rightCount = ref(0);
-const wrongCount = ref(0);
-const isSurveyCompleted = ref<boolean>(false);
-const userSt = useUserStore(); 
 
 const { t } = useI18n();
-const correctStr = t('general.correctStr');
-const inCorrectStr = t('general.inCorrectStr');
+const toast = useToast();
 
-const closeDialog = () => {
-  showDialog.value = false;
-  isSurveyCompleted.value = true;
-};
+const testId = ref<string>('');
 
-onMounted(async () => {
-  try {
-    const response = await electron.getSurvey(props.test);
-    if (response.success) {
-      survey.fromJSON(response.data);
-      json.value = response.data;
-      console.log(survey);
-    }
-  } catch (error) {
-    console.error('Error initializing survey model:', error);
-  }
+const testViewerUrl = computed(() => {
+  return testId.value ? `testviewer:test/${testId.value}` : null;
 });
 
-watch(() => userSt.darkMode, (newVal) => {
-  applyTheme(newVal);
-});
-
-const applyTheme = (isDarkMode) => {
-  const theme = isDarkMode ? BorderlessDark : DefaultLight;
-  survey.applyTheme(theme);
-  result.applyTheme(theme);
-};
-
-applyTheme(userSt.darkMode);
-survey.showCompletedPage = false;
-survey.onComplete.add(sender => {
-  showDialog.value = true;
-
-  result.fromJSON(json.value);
-  result.applyTheme(userSt.darkMode ? BorderlessDark : DefaultLight);
-  result.data = sender.data;
-  result.mode = "display";
-  result.widthMode = "static";
-  result.questionsOnPageMode = "singlePage";
-  result.showNavigationButtons = "none";
-  result.showProgressBar = "off";
-  result.showTimerPanel = "none";
-  result.maxTimeToFinishPage = 0;
-  result.maxTimeToFinish = 0;
-  result.showPageNumbers = false;
-  result.showQuestionNumbers = true;
-  result.showCompletedPage = false;
-
-  function getTextHtml(text, str, isCorrect) {
-    if (text.indexOf(str) < 0) return undefined;
-    return text.substring(0, text.indexOf(str)) + "<span class='" + (isCorrect ? "correctAnswer" : "incorrectAnswer") + "'>" + str + "</span>";
-  }
-
-  function renderCorrectAnswer(question, index) {
-    if (question.getType() != 'html' && question.getType() != 'image') {
-      if (question.getNestedQuestions().length > 0) {
-        question.getNestedQuestions().forEach(
-          (element) => {
-            if (!element) return;
-            const isCorrectEl = element.isAnswerCorrect();
-            if (isCorrectEl) {
-              rightCount.value++;
-            } else {
-              wrongCount.value++;
-            }
-
-            if (!element.prevTitle) {
-              element.prevTitle = element.title;
-            }
-
-            if (isCorrectEl === undefined) {
-              element.title = element.prevTitle;
-            }
-
-            element.title = element.prevTitle + ' ' + (isCorrectEl ? correctStr : inCorrectStr);
-          }
-        );
+const openInTestViewer = async () => {
+  if (testId.value) {
+    console.log('Opening TestViewer with testId:', testId.value);
+    try {
+      const result = await electron.openTestViewer(testId.value);
+      console.log('openTestViewer result:', result);
+      if (result.success) {
+        toast.add({ severity: 'success', detail: t('general.testviewer-opened'), life: 3000 });
       } else {
-        if (!question) return;
-        const isCorrect = question.isAnswerCorrect();
-
-        if (isCorrect) {
-          rightCount.value++;
-        } else {
-          wrongCount.value++;
-        }
-
-        if (!question.prevTitle) {
-          question.prevTitle = question.title;
-        }
-
-        if (isCorrect === undefined) {
-          question.title = question.prevTitle;
-        }
-        question.title = question.prevTitle + ' ' + (isCorrect ? correctStr : inCorrectStr);
+        throw new Error(result.error);
       }
+    } catch (error) {
+      console.error('Failed to open TestViewer:', error);
+      toast.add({ severity: 'error', detail: t('general.cannot-open-testviewer'), life: 3000 });
     }
+  } else {
+    console.error('No test ID available');
+    toast.add({ severity: 'error', summary: t('general.no-test-id'), detail: t('general.no-test-id-found'), life: 3000 });
   }
+};
 
-  result.onTextMarkdown.add((sender, options) => {
-    var text = options.text;
-    var html = getTextHtml(text, correctStr, true);
-
-    if (!html) {
-      html = getTextHtml(text, inCorrectStr, false);
-    }
-    if (!!html) {
-      options.html = html;
-    }
-  });
-  result.getAllQuestions().forEach((question, index) => renderCorrectAnswer(question, index));
+onMounted(() => {
+  console.log('TestViewer component mounted. Props:', props);
+  testId.value = props.test.testId || '';
+  console.log('Test ID set to:', testId.value);
 });
-
 </script>
 
 <template>
-  <div>
-    <div v-if="isSurveyCompleted">
-      <Toolbar>
-        <template #end>
-          <div class="flex justify-end gap-4">
-            <Message severity="success" :closable="false">
-              <p class="text-lg font-medium text-600">{{$t('general.correct-answers')}}:
-                 <Badge value="" size="large">{{ rightCount }}</Badge></p>
-            </Message>
-            <Message severity="error" :closable="false">
-              <p class="text-lg font-medium text-600">{{$t('general.incorrect-answers')}}: 
-                <Badge value="" size="large" style="background-color: red;">{{ wrongCount }}</Badge></p>
-            </Message>
-          </div>
-        </template>
-      </Toolbar>
-      <SurveyComponent :model="result"></SurveyComponent>
-    </div>
-    <SurveyComponent :model="survey"></SurveyComponent>
-    <Dialog :closable="false" v-model:visible="showDialog" modal style="max-width: 400px;">
-      <div class="text-center">
-        <div class="text-2xl text-gray-900 dark:text-white mb-8">{{$t('general.result') }}</div>
-        <p class="text-lg font-medium text-600 mb-6"><Badge value="" size="large">{{ rightCount }}</Badge> {{$t('general.correct-answers')}}
-          <Badge value="" size="large" style="background-color: red">{{ wrongCount }}</Badge> {{$t('general.incorrect-answers')}}</p>
-        <Button @click="closeDialog" class="sm:w-20 h-8 ml-auto mb-4" outlined>Ок</Button>
-      </div>
-    </Dialog>
+  <div class="test-link-container">
+    <Button
+      v-if="testId"
+      @click="openInTestViewer"
+      :label="t('general.open-test')"
+      icon="pi pi-external-link"
+      class="p-button-primary"
+    />
+    <p v-else class="error-message">{{ t('general.test-id-not-found') }}</p>
   </div>
 </template>
 
 <style scoped>
-.correctAnswer {
-  color: green;
+.test-link-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100px;
 }
-.incorrectAnswer {
+
+.error-message {
   color: red;
-}
-.sd-root-modern .sd-container-modern__title {
-  display: none !important;
+  font-weight: bold;
 }
 </style>

@@ -6,10 +6,10 @@ export async function exportBookAsZip(book) {
 
   const folders = ['books', 'images', 'videos', 'models', 'ppt', 'survey'];
   folders.forEach(folder => {
-    zip.folder(`data/${folder}`); 
+    zip.folder(`data/${folder}`);
   });
 
-  const sanitizedTitle = sanitizeFileName(book.title); 
+  const sanitizedTitle = sanitizeFileName(book.title);
   zip.folder('data/books').file(`${sanitizedTitle}.json`, JSON.stringify(book));
 
   function sanitizeFileName(fileName) {
@@ -19,21 +19,19 @@ export async function exportBookAsZip(book) {
   const fetchPromises = [];
 
   const resolvePath = (path) => {
-    const isPackaged = process.env.NODE_ENV === 'production'; 
+    const isPackaged = process.env.NODE_ENV === 'production';
      const resourcesPath = process.env.NODE_ENV === 'resourcesPath';
     const resolvedPath = isPackaged ? path.replace(resourcesPath, '/resources/data/', 'resources/data/') : path;
     return resolvedPath;
   };
 
-
   const resolveFileName = (path, baseFolder) => {
-    const isPackaged = process.env.NODE_ENV === 'production'; 
+    const isPackaged = process.env.NODE_ENV === 'production';
     const relativePath = isPackaged ? path.split(`../resources/data/${baseFolder}/`)[1] : path.split(`/src/data/${baseFolder}/`)[1];
     const fileName = `data/${baseFolder}/${relativePath}`;
     return fileName;
-    
-  };
 
+  };
 
   if (book.chapters) {
     book.chapters.forEach(chapter => {
@@ -59,7 +57,6 @@ export async function exportBookAsZip(book) {
     });
   }
 
-
   if (book.chapters) {
     book.chapters.forEach(chapter => {
       if (chapter.blocks) {
@@ -82,7 +79,6 @@ export async function exportBookAsZip(book) {
     });
   }
 
-
   if (book.chapters) {
     book.chapters.forEach(chapter => {
       if (chapter.blocks) {
@@ -104,7 +100,6 @@ export async function exportBookAsZip(book) {
       }
     });
   }
-
 
   if (book.chapters) {
     book.chapters.forEach(chapter => {
@@ -132,7 +127,7 @@ export async function exportBookAsZip(book) {
       if (chapter.blocks) {
         chapter.blocks.forEach(block => {
           if (block.type === 'test' && block.content.html) {
-            const surveyPath = resolvePath(block.path); 
+            const surveyPath = resolvePath(block.path);
             const fetchPromise = fetch(surveyPath)
               .then(res => res.blob())
               .then(blob => {
@@ -147,14 +142,11 @@ export async function exportBookAsZip(book) {
     });
   }
 
-
-
   await Promise.all(fetchPromises);
-
 
   const zipBlob = await zip.generateAsync({ type: 'blob' });
 
   saveAs(zipBlob, `${sanitizedTitle}`);
 
-  return zipBlob; 
+  return zipBlob;
 }
