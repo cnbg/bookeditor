@@ -5,17 +5,20 @@ const fs = require('fs-extra');
 
 module.exports = {
   packagerConfig: {
-     asar: true,
+    asar: true,
     "extraResource": [
       "./src/tinymce",
       "./src/data"
-    ]
+    ],
+    icon: 'src/data/icon.png'
   },
   rebuildConfig: {},
   makers: [
     {
       name: '@electron-forge/maker-squirrel',
-      config: {},
+      config: {
+        "setupIcon": "./src/data/icon.ico"
+      },
     },
     {
       name: '@electron-forge/maker-zip',

@@ -19,7 +19,7 @@
       "pages": 0,
       "expanded": true,
       "order": 0,
-      "items": 0,
+      "items": 1,
       "blocks": [
         {
           "id": "47727a19-b261-48ec-84fd-e5b5b7f53390",
@@ -56,6 +56,20 @@
         }
       ],
       "book_id": "9e63a177-e63d-4175-a158-983a7be3d06f"
+    },
+    {
+      "id": "959316cf-9f25-4bf9-bb17-6b1083d55031",
+      "parent": "bb39b0b7-5da6-4a8c-8ca2-5543bddfaa3f",
+      "book_id": "9e63a177-e63d-4175-a158-983a7be3d06f",
+      "title": "123123",
+      "desc": "",
+      "tags": [],
+      "date": "2024-07-17T10:21:19.545Z",
+      "pages": 0,
+      "expanded": false,
+      "order": 0,
+      "items": 0,
+      "blocks": []
     }
   ]
 }

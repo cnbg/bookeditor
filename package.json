@@ -7,6 +7,14 @@
     "book reader",
     "book editor"
   ],
+  "build": {
+    "appId": "bookeditor",
+    "productName": "BookEditor",
+    "win": {
+      "target": "nsis",
+      "icon": "src/data/icon.ico"
+    }
+  },
   "author": {
     "name": "cb",
     "email": "nurchin@gmail.com"

@@ -59,18 +59,18 @@
 import { ref, onMounted } from 'vue';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
-import { useBookStore } from '../../stores/book'; 
+import { useBookStore } from '../../stores/book';
 
 const props = defineProps(['html']);
 const content = ref('');
 
-let quill; 
+let quill;
 const bookSt = useBookStore();
 
 const save = () => {
   if (quill) {
     const htmlContent = quill.root.innerHTML;
-    bookSt.saveBlock(htmlContent); 
+    bookSt.saveBlock(htmlContent);
   }
 };
 
@@ -86,10 +86,10 @@ onMounted(() => {
     placeholder: '...',
   });
 
-  quill.root.innerHTML = content.value; 
+  quill.root.innerHTML = content.value;
 
   quill.on('text-change', () => {
-    content.value = quill.root.innerHTML; 
+    content.value = quill.root.innerHTML;
   });
 });
 </script>

@@ -6,6 +6,7 @@ import { useToast } from 'primevue/usetoast'
 import { useConfirm } from 'primevue/useconfirm'
 import { formatDate } from '../../../lib/date'
 import { useBookStore } from '../../../stores/book'
+import { exportBookAsZip } from '../../../lib/exportzip'
 
 const bookSt = useBookStore()
 const {t} = useI18n()
@@ -55,6 +56,12 @@ const items = ref([
       goto('book-view', {bookId: bookSt.book.id})
     },
   },
+  { separator: true },
+  {
+    label: t('general.export-book'), icon: 'pi pi-file-export', command: () => {
+      exportBookAsZip(bookSt.book)
+    },
+  },
   /* {separator: true},
   {label: t('general.sync-with-server'), icon: 'pi pi-sync', command: () => {syncToServe()}}, */
   {separator: true},
@@ -93,7 +100,7 @@ const goTo = (route, params = {}) => {
         <button class="p-panel-header-icon p-link mr-6"  @click="goTo('home')">
           <span class="pi pi-home"></span>
         </button>
-        
+
         <button class="p-panel-header-icon p-link mr-4" @click="toggle">
           <span class="pi pi-cog"></span>
         </button>

@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useUserStore } from '../../stores/user'
@@ -66,6 +66,12 @@ const panelMenuItems = ref([
   },
 ])
 
+const currentPageIndex = computed(() => {
+  if (page.value === -1) return -1;
+  if (page.value === 0) return 0;
+  return bookSt.book.chapters.findIndex(ch => ch.id === bookSt.chapter?.id) + 1;
+})
+
 const totalPages = computed(() => {
   if (!bookSt.book) return 0;
   return (bookSt.book.chapters?.length || 0) + 1; // +1 for the chapter list page
@@ -114,6 +120,12 @@ const goTo = (route, params = {}) => {
 const sidebarChapterTree = computed(() => {
   if (!bookSt.book || !bookSt.book.chapters) return []
 
+  const chapterListNode = {
+    key: 'chapter-list',
+    label: t('general.table-of-contents'),
+    selectable: true,
+  }
+
   const buildTree = (chapters, parentId = null) => {
     return chapters
       .filter(chapter => chapter.parent === parentId)
@@ -124,7 +136,7 @@ const sidebarChapterTree = computed(() => {
       }))
   }
 
-  return buildTree(bookSt.book.chapters)
+  return [chapterListNode, ...buildTree(bookSt.book.chapters)]
 })
 
 const pageChapterTree = computed(() => {
@@ -156,12 +168,31 @@ const pageChapterTree = computed(() => {
   return tree
 })
 
-
 const onChapterSelect = (node) => {
   const chapterId = node.key
-  bookSt.chapter = bookSt.book.chapters.find(ch => ch.id === chapterId)
+  if (chapterId === 'chapter-list') {
+    page.value = 0;
+    bookSt.chapter = null;
+  } else {
+    bookSt.chapter = bookSt.book.chapters.find(ch => ch.id === chapterId)
+    page.value = bookSt.book.chapters.indexOf(bookSt.chapter) + 1;
+  }
   selectedChapterKey.value = { [chapterId]: true }
   router.push({ name: 'book-view', params: { bookId: bookSt.book.id, chapterId } })
+}
+
+const goToPage = (newPage) => {
+  page.value = newPage;
+  if (newPage === -1) {
+    bookSt.chapter = null;
+    selectedChapterKey.value = {};
+  } else if (newPage === 0) {
+    bookSt.chapter = null;
+    selectedChapterKey.value = { 'chapter-list': true };
+  } else {
+    bookSt.chapter = bookSt.book.chapters[newPage - 1];
+    selectedChapterKey.value = { [bookSt.chapter.id]: true };
+  }
 }
 
 const onNodeToggle = (node) => {
@@ -172,12 +203,26 @@ const onNodeToggle = (node) => {
     expandedKeysValue[node.key] = true
   expandedKeys.value = expandedKeysValue
 }
+
 const goToBookHome = () => {
-  router.push({ name: 'book-view', params: { bookId: props.bookId } })
-  // Reset the selected chapter in the store if necessary
-  bookSt.chapter = null
-  selectedChapterKey.value = {}
+  page.value = -1;
+  bookSt.chapter = null;
+  selectedChapterKey.value = {};
+  router.replace({
+    name: 'book-view',
+    params: { bookId: props.bookId },
+    query: { page: 'toc' }
+  }, { shallow: true });
 }
+
+watch(currentPageIndex, (newIndex) => {
+  if (newIndex === 0) {
+    selectedChapterKey.value = {};
+  } else if (newIndex > 0) {
+    const selectedChapter = bookSt.book.chapters[newIndex - 1];
+    selectedChapterKey.value = { [selectedChapter.id]: true };
+  }
+})
 </script>
 
 <template>
@@ -202,14 +247,13 @@ const goToBookHome = () => {
       </div>
     </aside>
 
-    <main class="flex-1 overflow-y-auto p-4">
-      <div class="content-area">
+    <main class="flex-1 overflow-y-auto p-4 flex flex-col">
+      <div class="content-area flex-grow">
         <div v-if="bookSt.book" class="mx-auto w-full sm:w-5/6 md:w-4/5 lg:w-4/4 xl:w-4/5">
           <div class="bg-surface-0 dark:bg-surface-900 py-3 px-5 rounded-lg flex items-center gap-3">
             <div class="text-2xl m-0 flex-auto">{{ bookSt.book.title }}</div>
             <Button @click="toggleMenu" icon="pi pi-cog" text plain />
-            <Button icon="pi pi-times" text plain @click="goTo('home')">
-            </Button>
+            <Button icon="pi pi-times" text plain @click="goTo('home')" />
             <Menu ref="menu" :model="panelMenuItems" popup />
           </div>
           <div v-if="chapterId && bookSt.chapter">
@@ -248,50 +292,46 @@ const goToBookHome = () => {
                 <ContentViewer :chapter="chapter" />
               </div>
             </div>
-            <div v-if="pager" class="fixed bottom-0 left-0 right-0 px-5 md:px-2 py-5 text-center w-full">
-              <div class="flex justify-between flex-col sm:flex-row gap-4 mx-auto w-full sm:w-5/6 md:w-4/5 lg:w-3/4 xl:w-3/5">
-                <Button :disabled="page <= -1" size="small"
-                        :severity="userSt.darkMode ? 'success' : 'secondary'"
-                        class="w-full text-sm font-bold flex items-center gap-3"
-                        @click="page--">
-                  <i class="pi pi-chevron-left"></i>
-                  <span class="truncate grow">
-                    {{ page === 0 ? $t('general.cover') :
-                      page === 1 ? $t('general.table-of-contents') :
-                      bookSt.book.chapters[page - 2]?.title ?? $t('general.homepage') }}
-                  </span>
-                </Button>
-                <Button :disabled="page >= totalPages" size="small"
-                        :severity="userSt.darkMode ? 'success' : 'secondary'"
-                        class="w-full text-sm font-bold flex items-center gap-3"
-                        @click="page++">
-                  <span class="truncate grow">
-                    {{ page === -1 ? $t('general.table-of-contents') :
-                      page === 0 ? bookSt.book.chapters[0]?.title :
-                      page < totalPages ? bookSt.book.chapters[page]?.title : '' }}
-                  </span>
-                  <i class="pi pi-chevron-right"></i>
-                </Button>
-              </div>
-            </div>
           </div>
         </div>
         <NotFoundPage v-else />
-
-        <Dialog v-model:visible="showSendDialog" modal :header="$t('general.link')" :style="{ width: '25rem' }">
-          <div class="flex align-items-center gap-3 mb-5">
-            https://localhost/{{ $route.path }}
-          </div>
-          <div class="flex justify-content-end gap-2">
-            <Button type="button" :label="$t('general.close')" severity="secondary" @click="showSendDialog = false"></Button>
-          </div>
-        </Dialog>
+      </div>
+      <div v-if="bookSt.book" class="mt-auto py-5">
+        <div class="flex justify-between gap-4 mx-auto w-full sm:w-5/6 md:w-4/5 lg:w-3/4 xl:w-3/5">
+          <Button :disabled="currentPageIndex <= -1" size="small"
+                  :severity="userSt.darkMode ? 'success' : 'secondary'"
+                  class="w-full text-sm font-bold flex items-center gap-3"
+                  @click="goToPage(currentPageIndex - 1)">
+            <i class="pi pi-chevron-left"></i>
+            <span class="truncate grow">
+              {{ currentPageIndex === 0 ? $t('general.cover') :
+                 currentPageIndex === 1 ? $t('general.chapter-list') :
+                 bookSt.book.chapters[currentPageIndex - 2]?.title ?? $t('general.homepage') }}
+            </span>
+          </Button>
+          <Button :disabled="currentPageIndex >= totalPages" size="small"
+                  :severity="userSt.darkMode ? 'success' : 'secondary'"
+                  class="w-full text-sm font-bold flex items-center gap-3"
+                  @click="goToPage(currentPageIndex + 1)">
+            <span class="truncate grow">
+              {{ currentPageIndex === -1 ? $t('general.table-of-contents') :
+                 currentPageIndex === 0 ? bookSt.book.chapters[0]?.title :
+                 currentPageIndex < totalPages ? bookSt.book.chapters[currentPageIndex]?.title : '' }}
+            </span>
+            <i class="pi pi-chevron-right"></i>
+          </Button>
+        </div>
       </div>
     </main>
   </div>
 </template>
 
 <style scoped>
+:global(.dark-mode) .pager {
+  border-top-color: var(--surface-700);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+}
+
 .chapter-list-container {
   font-family: Arial, sans-serif;
 }
@@ -352,6 +392,18 @@ const goToBookHome = () => {
   /* overflow-y: auto; */
 }
 
+.chapters-tree{
+  /* padding: 0; */
+}
+
+.chapters-tree :deep(ul>li) {
+  padding: 0;
+}
+
+.chapters-tree :deep(ul>li>div) {
+  padding: 0;
+}
+
 .content-area {
   flex-grow: 1;
   overflow-y: auto;
@@ -365,12 +417,10 @@ const goToBookHome = () => {
   border: none;
 }
 
-/* Dark mode adjustments */
 :global(.dark-mode) .sidebar {
   background-color: var(--surface-900);
   border-right-color: var(--surface-700);
 }
-
 
 .chapter-tree :deep(li>div){
   padding: 0;

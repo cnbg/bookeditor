@@ -50,7 +50,6 @@
   </div>
 </template>
 
-
 <script setup>
 import { defineProps, computed } from 'vue';
 import { useBookStore } from '../../stores/book';

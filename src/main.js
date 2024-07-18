@@ -37,6 +37,7 @@ if (!gotTheLock) {
                 webSecurity: false,
                 nodeIntegration: true, // nodeIntegration should be false for security
             },
+            icon: 'src/data/icon.png'
         });
 
         if (!app.isPackaged) {
