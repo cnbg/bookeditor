@@ -127,15 +127,8 @@ export async function exportBookAsZip(book) {
       if (chapter.blocks) {
         chapter.blocks.forEach(block => {
           if (block.type === 'test' && block.content.html) {
-            const surveyPath = resolvePath(block.path);
-            const fetchPromise = fetch(surveyPath)
-              .then(res => res.blob())
-              .then(blob => {
-                const fileName = resolveFileName(block.path, 'survey');
-                zip.file(fileName, blob);
-              })
-              .catch(error => console.error(`Failed to fetch survey: ${block.path}`, error));
-            fetchPromises.push(fetchPromise);
+
+
           }
         });
       }
