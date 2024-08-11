@@ -26,18 +26,18 @@
         @timeupdate="handleEvent(player?.currentTime())"
       />
     </Fieldset>
-      <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
+      <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     </div>
     <div v-else class="video-container">
       <div class="flex justify-end gap-2 edit-controls">
-        <FileUpload 
-          mode="basic" 
-          name="cover" 
+        <FileUpload
+          mode="basic"
+          name="cover"
           accept="video/mp4,video/x-m4v,video/*"
-          customUpload 
-          @uploader="fileUploader" 
+          customUpload
+          @uploader="fileUploader"
           auto
-          :chooseLabel="$t('general.select-file')" 
+          :chooseLabel="$t('general.select-file')"
         />
         <Button @click="deleteVideo" icon="pi pi-trash" severity="danger" />
         <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />
@@ -77,7 +77,9 @@ import { defineProps, ref, defineEmits } from 'vue';
 import { VideoPlayer } from '@videojs-player/vue';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const props = defineProps({
   video: {
     type: Object,
@@ -154,10 +156,10 @@ const hideEdit = () => {
 
 <style scoped>
 .edit-button {
-  width: 30px;
+  /* width: 30px; */
   height: 30px;
   left:23px;
-  padding: 0;
+  padding: 5px 0;
   font-size: 14px;
   position: absolute;
   top: 5px;

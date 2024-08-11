@@ -25,6 +25,9 @@ export default defineConfig((env) => {
             // Load the Node.js entry.
             mainFields: ['module', 'jsnext:main', 'jsnext'],
         },
+        server: {
+            port: 5174
+        },
     }
 
     return mergeConfig(getBuildConfig(forgeEnv), config)

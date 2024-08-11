@@ -3,9 +3,11 @@ import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { ref } from 'vue'
 
-defineProps({
+const props = defineProps({
   searchable: {type: Boolean, default: false},
 })
+
+const emit = defineEmits(['search', 'refresh'])
 
 const route = useRoute()
 const router = useRouter()
@@ -26,6 +28,9 @@ const navigate = (name, disabled) => {
     router.push({ name });
   }
 }
+const refresh = () => {
+  emit('refresh')
+}
 </script>
 
 <template>
@@ -38,6 +43,9 @@ const navigate = (name, disabled) => {
                 :severity="route.name === name ? 'success' : 'secondary'">
           <i :class="icon" class="mr-2"></i>{{ label }}
         </Button>
+         <slot name="refresh">
+          <Button icon="pi pi-refresh" @click="refresh" :text="true" />
+        </slot>
       </template>
 
       <template #center v-if="searchable">

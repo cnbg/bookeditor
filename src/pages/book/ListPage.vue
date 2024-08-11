@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useBookStore } from '../../stores/book'
 
 const bookSt = useBookStore()
@@ -16,10 +16,18 @@ const filter = (items, s) => {
         i.tags.includes(s)
   })
 }
+const refreshBooks = async () => {
+  await bookSt.fetchBooks()
+  books.value = bookSt.books
+}
+
+onMounted(() => {
+  refreshBooks()
+})
 </script>
 
 <template>
-  <TopMenu class="p-2" searchable @search="search" />
+  <TopMenu class="p-2" searchable @search="search" @refresh="refreshBooks" />
 
   <ScrollPanel style="width: 100%; height: calc(100vh - 80px)">
     <div class="px-2 py-5 flex flex-wrap justify-center gap-x-6 gap-y-10">

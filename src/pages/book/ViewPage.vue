@@ -36,85 +36,72 @@ const toggleMenu = (event) => {
 
 const panelMenuItems = ref([
   {
-    label: t('general.edit'), icon: 'pi pi-pencil', command: () => {
+    label: t('general.edit'),
+    icon: 'pi pi-pencil',
+    command: () => {
       router.push({ name: 'book-edit', params: { bookId: props.bookId, chapterId: bookSt.chapter?.id } })
     },
   },
   { separator: true },
   {
     label: t('general.change-view-format'),
-    icon: 'pi pi-images', command: () => { pager.value = !pager.value },
+    icon: 'pi pi-images',
+    command: () => { pager.value = !pager.value },
   },
   { separator: true },
   {
-    label: t('general.send'), icon: 'pi pi-send', command: () => {
-      showSendDialog.value = true
-    },
+    label: t('general.send'),
+    icon: 'pi pi-send',
+    command: () => { showSendDialog.value = true },
   },
   { separator: true },
   {
-    label: t('general.download-as-pdf'), icon: 'pi pi-download', command: () => {
+    label: t('general.download-as-pdf'),
+    icon: 'pi pi-download',
+    command: () => {
       const html = document.querySelector('#html-content').innerHTML
       exportPdf(html, bookSt.book?.title)
     },
   },
   { separator: true },
   {
-    label: t('general.export-book'), icon: 'pi pi-file-export', command: () => {
-      exportBookAsZip(bookSt.book)
-    },
+    label: t('general.export-book'),
+    icon: 'pi pi-file-export',
+    command: () => { exportBookAsZip(bookSt.book) },
   },
 ])
 
 const currentPageIndex = computed(() => {
-  if (page.value === -1) return -1;
-  if (page.value === 0) return 0;
-  return bookSt.book.chapters.findIndex(ch => ch.id === bookSt.chapter?.id) + 1;
+  if (page.value === -1) return -1
+  if (page.value === 0) return 0
+  return bookSt.book.chapters.findIndex(ch => ch.id === bookSt.chapter?.id) + 1
 })
 
 const totalPages = computed(() => {
-  if (!bookSt.book) return 0;
-  return (bookSt.book.chapters?.length || 0) + 1; // +1 for the chapter list page
+  if (!bookSt.book) return 0
+  return (bookSt.book.chapters?.length || 0) + 1 // +1 for the chapter list page
 })
-
-const renderChapterTree = (chapters, parentId = null, level = 0) => {
-  return chapters
-    .filter(chapter => chapter.parent === parentId)
-    .map((chapter, index) => {
-      const hasChildren = chapters.some(ch => ch.parent === chapter.id);
-      const chapterIndex = chapters.findIndex(ch => ch.id === chapter.id) + 1;
-      return `
-        <div class="chapter-item" style="margin-left: ${level * 10}px;">
-          <span>${'•'.repeat(level + 1)}
-            <a href="#" class="chapter-link" onclick="window.goToChapter(${chapterIndex}); return false;">
-              ${chapter.title}
-            </a>
-          </span>
-          ${hasChildren ? renderChapterTree(chapters, chapter.id, level + 1) : ''}
-        </div>
-      `;
-    })
-    .join('');
-};
-
-const goToChapter = (chapterIndex) => {
-  page.value = chapterIndex;
-};
-
-if (typeof window !== 'undefined') {
-  window.goToChapter = goToChapter;
-}
 
 const goTo = (route, params = {}) => {
   if (bookSt.editing) {
     toast.add({ severity: 'error', summary: t('general.dont-forget-to-save'), life: 4000 })
   } else {
     if (route === 'home') {
-      router.push({ path: '/' });
+      router.push({ path: '/' })
     } else {
-      router.push({ name: route, params: params });
+      router.push({ name: route, params: params })
     }
   }
+}
+
+const buildTree = (chapters, parentId = null) => {
+  return chapters
+    .filter(chapter => chapter.parent === parentId)
+    .map(chapter => ({
+      key: chapter.id,
+      label: chapter.title,
+      children: buildTree(chapters, chapter.id)
+    }))
 }
 
 const sidebarChapterTree = computed(() => {
@@ -126,35 +113,13 @@ const sidebarChapterTree = computed(() => {
     selectable: true,
   }
 
-  const buildTree = (chapters, parentId = null) => {
-    return chapters
-      .filter(chapter => chapter.parent === parentId)
-      .map(chapter => ({
-        key: chapter.id,
-        label: chapter.title,
-        children: buildTree(chapters, chapter.id)
-      }))
-  }
-
   return [chapterListNode, ...buildTree(bookSt.book.chapters)]
 })
 
 const pageChapterTree = computed(() => {
   if (!bookSt.book || !bookSt.book.chapters) return []
 
-  const buildTree = (chapters, parentId = null) => {
-    return chapters
-      .filter(chapter => chapter.parent === parentId)
-      .map(chapter => ({
-        key: chapter.id,
-        label: chapter.title,
-        children: buildTree(chapters, chapter.id)
-      }))
-  }
-
   const tree = buildTree(bookSt.book.chapters)
-
-  // Set all nodes as expanded for the page tree
   const setExpandedKeys = (nodes) => {
     nodes.forEach(node => {
       expandedKeys.value[node.key] = true
@@ -171,27 +136,27 @@ const pageChapterTree = computed(() => {
 const onChapterSelect = (node) => {
   const chapterId = node.key
   if (chapterId === 'chapter-list') {
-    page.value = 0;
-    bookSt.chapter = null;
+    page.value = 0
+    bookSt.chapter = null
   } else {
     bookSt.chapter = bookSt.book.chapters.find(ch => ch.id === chapterId)
-    page.value = bookSt.book.chapters.indexOf(bookSt.chapter) + 1;
+    page.value = bookSt.book.chapters.indexOf(bookSt.chapter) + 1
   }
   selectedChapterKey.value = { [chapterId]: true }
   router.push({ name: 'book-view', params: { bookId: bookSt.book.id, chapterId } })
 }
 
 const goToPage = (newPage) => {
-  page.value = newPage;
+  page.value = newPage
   if (newPage === -1) {
-    bookSt.chapter = null;
-    selectedChapterKey.value = {};
+    bookSt.chapter = null
+    selectedChapterKey.value = {}
   } else if (newPage === 0) {
-    bookSt.chapter = null;
-    selectedChapterKey.value = { 'chapter-list': true };
+    bookSt.chapter = null
+    selectedChapterKey.value = { 'chapter-list': true }
   } else {
-    bookSt.chapter = bookSt.book.chapters[newPage - 1];
-    selectedChapterKey.value = { [bookSt.chapter.id]: true };
+    bookSt.chapter = bookSt.book.chapters[newPage - 1]
+    selectedChapterKey.value = { [bookSt.chapter.id]: true }
   }
 }
 
@@ -205,45 +170,51 @@ const onNodeToggle = (node) => {
 }
 
 const goToBookHome = () => {
-  page.value = -1;
-  bookSt.chapter = null;
-  selectedChapterKey.value = {};
+  page.value = -1
+  bookSt.chapter = null
+  selectedChapterKey.value = {}
   router.replace({
     name: 'book-view',
     params: { bookId: props.bookId },
     query: { page: 'toc' }
-  }, { shallow: true });
+  }, { shallow: true })
 }
 
 watch(currentPageIndex, (newIndex) => {
   if (newIndex === 0) {
-    selectedChapterKey.value = {};
+    selectedChapterKey.value = {}
   } else if (newIndex > 0) {
-    const selectedChapter = bookSt.book.chapters[newIndex - 1];
-    selectedChapterKey.value = { [selectedChapter.id]: true };
+    const selectedChapter = bookSt.book.chapters[newIndex - 1]
+    selectedChapterKey.value = { [selectedChapter.id]: true }
   }
 })
+
+const goBack = () => {
+  router.back()
+}
 </script>
 
 <template>
   <div class="book-viewer-container flex h-screen overflow-hidden">
-    <aside class="w-1/5 min-w-[300px]">
+    <aside class="w-1/5 book-viewer-container-aside">
       <div class="p-4">
         <div class="bg-surface-0 dark:bg-surface-900 py-3 px-5 rounded-lg flex items-center gap-2">
           <div class="text-2xl m-0 flex-auto">{{ $t('general.chapters') }}</div>
           <Button icon="pi pi-align-left" text plain @click="goToBookHome"></Button>
         </div>
-        <Tree
-          :value="sidebarChapterTree"
-          selectionMode="single"
-          :selectionKeys="selectedChapterKey"
-          @node-select="onChapterSelect"
-          class="chapter-tree mt-4"
-        >
-          <template #default="slotProps">
-            <span>{{ slotProps.node.label }}</span>
-          </template>
-        </Tree>
+        <div class="chapter-tree-container">
+          <Tree
+            :value="sidebarChapterTree"
+            selectionMode="single"
+            :selectionKeys="selectedChapterKey"
+            @node-select="onChapterSelect"
+            class="chapter-tree mt-4"
+          >
+            <template #default="slotProps">
+              <span>{{ slotProps.node.label }}</span>
+            </template>
+          </Tree>
+        </div>
       </div>
     </aside>
 
@@ -253,7 +224,8 @@ watch(currentPageIndex, (newIndex) => {
           <div class="bg-surface-0 dark:bg-surface-900 py-3 px-5 rounded-lg flex items-center gap-3">
             <div class="text-2xl m-0 flex-auto">{{ bookSt.book.title }}</div>
             <Button @click="toggleMenu" icon="pi pi-cog" text plain />
-            <Button icon="pi pi-times" text plain @click="goTo('home')" />
+            <Button icon="pi pi-times" text plain @click="goBack" />
+            <Button icon="pi pi-home" text plain @click="goTo('home')" />
             <Menu ref="menu" :model="panelMenuItems" popup />
           </div>
           <div v-if="chapterId && bookSt.chapter">
@@ -263,7 +235,7 @@ watch(currentPageIndex, (newIndex) => {
           </div>
           <div v-else>
             <div v-if="page === -1" id="html-content" class="bg-surface-0 dark:bg-surface-900 my-3 md:my-4 p-4 md:p-12 rounded-lg">
-              <img :src="bookSt.book.cover" class="w-full h-full object-contain" />
+              <img :src="bookSt.book.cover" class="w-full h-full object-contain" alt="Book cover" />
             </div>
             <div v-else-if="page === 0" id="html-content" class="bg-surface-0 dark:bg-surface-900 my-3 md:my-4 p-4 md:p-12 rounded-lg chapter-list-container">
               <h2>{{ $t('general.table-of-contents') }}</h2>
@@ -288,7 +260,7 @@ watch(currentPageIndex, (newIndex) => {
             </div>
             <div v-else id="html-content">
               <div v-for="chapter in bookSt.book.chapters" :key="chapter.id"
-                  class="bg-surface-0 dark:bg-surface-900 my-3 md:my-4 p-4 md:p-12 rounded-lg">
+                   class="bg-surface-0 dark:bg-surface-900 my-3 md:my-4 p-4 md:p-12 rounded-lg">
                 <ContentViewer :chapter="chapter" />
               </div>
             </div>
@@ -327,94 +299,68 @@ watch(currentPageIndex, (newIndex) => {
 </template>
 
 <style scoped>
-:global(.dark-mode) .pager {
-  border-top-color: var(--surface-700);
-  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
-}
-
-.chapter-list-container {
-  font-family: Arial, sans-serif;
-}
-.chapter-item {
-  margin-bottom: 10px;
-}
-.chapter-link {
-  text-decoration: none;
-  transition: all 0.3s ease;
-}
-.chapter-link:visited {
-  color: #551A8B;
-}
-.chapter-link:hover, .chapter-link:focus {
-  color: #FF0000;
-  text-decoration: underline;
-}
-.chapter-link:active {
-  color: #FF0000;
-}
-
-/* Dark mode styles */
-@media (prefers-color-scheme: dark) {
-  .chapter-link {
-    color: #9999FF;
-  }
-  .chapter-link:visited {
-    color: #CC99FF;
-  }
-  .chapter-link:hover, .chapter-link:focus, .chapter-link:active {
-    color: #FF6666;
-  }
-}
-
-:global(.dark-mode) .chapter-link {
-  color: #9999FF;
-}
-:global(.dark-mode) .chapter-link:visited {
-  color: #CC99FF;
-}
-:global(.dark-mode) .chapter-link:hover,
-:global(.dark-mode) .chapter-link:focus,
-:global(.dark-mode) .chapter-link:active {
-  color: #FF6666;
-}
-
-.book-viewer-container {
-  display: flex;
-  height: 100vh;
-}
-
-.sidebar {
-  min-width: 300px;
-  width: 100%;
-  height: 100%;
-  background-color: var(--surface-0);
-  border-right: 1px solid var(--surface-200);
-  /* overflow-y: auto; */
-}
-
-.chapters-tree{
-  /* padding: 0; */
-}
-
-.chapters-tree :deep(ul>li) {
-  padding: 0;
-}
-
-.chapters-tree :deep(ul>li>div) {
-  padding: 0;
-}
-
 .content-area {
   flex-grow: 1;
   overflow-y: auto;
 }
-
-.chapter-tree {
-  margin-top: 1rem;
+.book-viewer-container-aside {
+  max-width: 350px;
+  width: 100%;
 }
 
-.chapter-tree :deep(.p-tree) {
+.chapter-tree{
+  padding: 1.25rem 0.5rem;
+}
+
+.chapter-tree-container :deep(.p-tree) {
   border: none;
+  background: transparent;
+}
+
+.chapter-tree-container :deep(.p-treenode-content) {
+  padding: 0.5rem 0;
+}
+
+.chapter-tree-container :deep(.p-tree-toggler) {
+  margin-right: 0.5rem;
+}
+
+.chapter-tree-container :deep(.p-treenode-icon) {
+  margin-right: 0.5rem;
+  width: 1rem;
+  text-align: center;
+}
+
+.chapter-tree-container :deep(.p-treenode-label) {
+  margin-left: 0.5rem;
+}
+
+.chapters-tree li {
+  padding: 0;
+}
+.chapters-tree :deep(ul > li) {
+  padding: 0;
+}
+.chapters-tree :deep(ul > li > button) {
+  width: 50px;
+}
+
+.chapters-tree :deep(ul > li > div) {
+  padding: 0;
+}
+
+:deep(.chapter-tree li > div ) {
+  padding: 0;
+}
+
+:deep(.chapter-tree button ) {
+  min-width: 35px;
+  padding: 0;
+  margin: 0;
+}
+:deep(.chapter-tree button:focus ) {
+  box-shadow: none;
+  outline: none;
 }
 
 :global(.dark-mode) .sidebar {
@@ -422,8 +368,8 @@ watch(currentPageIndex, (newIndex) => {
   border-right-color: var(--surface-700);
 }
 
-.chapter-tree :deep(li>div){
-  padding: 0;
+:global(.dark-mode) .pager {
+  border-top-color: var(--surface-700);
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
 }
-
 </style>

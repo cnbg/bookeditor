@@ -14,6 +14,18 @@ export const useBookStore = defineStore('book', {
     persist: false,
     getters: {},
     actions: {
+        async fetchBooks() {
+            try {
+                const result = await window.electron.loadBooks()
+                if (result.success) {
+                    this.books = result.books
+                } else {
+                    console.error('Failed to fetch books:', result.message)
+                }
+            } catch (error) {
+                console.error('Error fetching books:', error)
+            }
+        },
         async getBook(bookId, chapterId = null) {
             this.book = this.books?.find(book => book.id === bookId)
 

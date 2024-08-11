@@ -68,12 +68,18 @@ const items = ref([
   {label: t('general.delete'), icon: 'pi pi-times', command: () => {confirmDialog()}},
 ])
 
+const goBack = () => {
+  router.back()
+}
+
 const goTo = (route, params = {}) => {
   if(bookSt.editing) {
     toast.add({severity: 'error', summary: t('general.dont-forget-to-save'), life: 4000})
   } else {
     if (route === 'home') {
       router.push({ path: '/' });
+    } else if (route === 'back') {
+      goBack();
     } else {
       router.push({ name: route, params: params });
     }
@@ -97,10 +103,12 @@ const goTo = (route, params = {}) => {
         </div>
       </template>
       <template #icons>
-        <button class="p-panel-header-icon p-link mr-6"  @click="goTo('home')">
+        <button class="p-panel-header-icon p-link mr-6" @click="goTo('back')">
+          <span class="pi pi-arrow-left"></span>
+        </button>
+        <button class="p-panel-header-icon p-link mr-6" @click="goTo('home')">
           <span class="pi pi-home"></span>
         </button>
-
         <button class="p-panel-header-icon p-link mr-4" @click="toggle">
           <span class="pi pi-cog"></span>
         </button>

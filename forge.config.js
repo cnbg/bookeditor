@@ -17,7 +17,9 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        "setupIcon": "./src/data/icon.ico"
+        "setupIcon": "./src/data/icon.ico",
+        "authors": "BookEditor",
+        "description": "BookEditor",
       },
     },
     {

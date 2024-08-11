@@ -20,17 +20,17 @@ const testViewerUrl = computed(() => {
 
 const openInTestViewer = async () => {
   if (testId.value) {
-    console.log('Opening TestViewer with testId:', testId.value);
+    // console.log('Opening TestViewer with testId:', testId.value);
     try {
       const result = await electron.openTestViewer(testId.value);
-      console.log('openTestViewer result:', result);
+      // console.log('openTestViewer result:', result);
       if (result.success) {
         toast.add({ severity: 'success', detail: t('general.testviewer-opened'), life: 3000 });
       } else {
         throw new Error(result.error);
       }
     } catch (error) {
-      console.error('Failed to open TestViewer:', error);
+      // console.error('Failed to open TestViewer:', error);
       toast.add({ severity: 'error', detail: t('general.cannot-open-testviewer'), life: 3000 });
     }
   } else {
@@ -40,9 +40,9 @@ const openInTestViewer = async () => {
 };
 
 onMounted(() => {
-  console.log('TestViewer component mounted. Props:', props);
+  // console.log('TestViewer component mounted. Props:', props);
   testId.value = props.test.testId || '';
-  console.log('Test ID set to:', testId.value);
+  // console.log('Test ID set to:', testId.value);
 });
 </script>
 

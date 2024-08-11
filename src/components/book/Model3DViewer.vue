@@ -6,7 +6,7 @@
         :src="model.path" :alt="model.name" class="h-96 mx-auto w-full" >
       </model-viewer>
       </Fieldset>
-      <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
+      <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     </div>
     <div v-else class="model-container">
       <div class="flex justify-end gap-2 edit-controls">
@@ -30,7 +30,9 @@
 <script setup>
 import { ref, defineEmits, defineProps } from 'vue';
 import '@google/model-viewer';
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const emit = defineEmits(['content-updated', 'delete-model']);
 const props = defineProps(['model']);
 const file = ref({});
@@ -91,10 +93,13 @@ const hideEdit = () => {
 
 <style scoped>
 .edit-button {
-  width: 30px;
+  /* width: 30px; */
   height: 30px;
   left:23px;
-  padding: 0;
+  /* padding: 0; */
+    /* width: 30px; */
+  /* height: 30px; */
+  padding: 0 5px;
   font-size: 14px;
   position: absolute;
   top: 5px;

@@ -17,7 +17,7 @@
         <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger"
                 severity="secondary" />
       </div>
-      <Button v-else @click="showEdit" icon="pi pi-pencil" class="edit-button" />
+      <Button v-else @click="showEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     </div>
     </div>
   </div>
@@ -137,7 +137,7 @@ const showEdit = () => {
 
 .d-flex {
   display: flex;
-  align-items: center; 
+  align-items: center;
 }
 
 .btn-view {
@@ -146,10 +146,10 @@ const showEdit = () => {
 }
 
 .edit-button {
-  width: 30px;
+  /* width: 30px; */
   height: 30px;
   left: 5px;
-  padding: 0;
+  padding: 5px 0;
   font-size: 14px;
   margin-top: 10px;
 }

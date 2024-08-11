@@ -1,10 +1,10 @@
 <template>
   <div>
-    <Button v-if="!editing && images.length > 0" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
+    <Button v-if="!editing && images.length > 0" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     <div v-if="!editing" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
       <div v-for="(image, index) in images" :key="index" class="image-container" @mouseover="showEdit(index)" @mouseleave="hideEdit(index)">
         <img :src="image.src" @click="imageClick(index)" alt="" class="object-cover aspect-video" />
-        <Button v-if="hoveredIndex === index" @click="startEditForImage(index)" icon="pi pi-pencil" class="edit-button" />
+        <Button v-if="hoveredIndex === index" @click="startEditForImage(index)" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
       </div>
     </div>
     <div v-else>
@@ -51,7 +51,9 @@
 
 <script setup>
 import { defineProps, defineEmits, ref, watch } from 'vue';
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const props = defineProps({
   images: {
     type: Array,
@@ -81,7 +83,7 @@ const startEdit = () => {
 const startEditForImage = (index) => {
   editing.value = true;
   editingIndex.value = index;
-  originalImage.value = JSON.parse(JSON.stringify(props.images[index])); 
+  originalImage.value = JSON.parse(JSON.stringify(props.images[index]));
 };
 
 const saveEdit = () => {
@@ -94,7 +96,7 @@ const saveEdit = () => {
 };
 
 const cancelEdit = () => {
-  props.images[editingIndex.value] = originalImage.value; 
+  props.images[editingIndex.value] = originalImage.value;
   editing.value = false;
   editingIndex.value = null;
   originalImage.value = {};
@@ -141,9 +143,9 @@ const hideEdit = (index) => {
 .edit-button {
   top: 5px;
   left:5px;
-  width: 30px;
+  /* width: 30px; */
   height: 30px;
-  padding: 0;
+  padding: 0 5px;
   font-size: 14px;
   bottom: 10px;
   position: absolute;

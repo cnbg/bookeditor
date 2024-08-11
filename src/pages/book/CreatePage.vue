@@ -34,7 +34,7 @@ const sanitizeObject = (obj) => {
 
 const generateFileName = (title) => {
   const sanitizedTitle = title.replace(/[^a-zA-Z0-9а-яА-Я]/g, '_');
-  const randomNumber = Math.floor(Math.random() * 10000); 
+  const randomNumber = Math.floor(Math.random() * 10000);
   return `${sanitizedTitle}_${randomNumber}.json`;
 };
 
@@ -71,7 +71,7 @@ const save = async () => {
 const customBase64Uploader = async (event) => {
   const file = event.files[0]
   const reader = new FileReader()
-  let blob = await fetch(file.objectURL).then((r) => r.blob()) 
+  let blob = await fetch(file.objectURL).then((r) => r.blob())
 
   reader.readAsDataURL(blob)
 
@@ -90,10 +90,10 @@ const customBase64Uploader = async (event) => {
       <InputText id="book-title" v-model="book.title" class="text-2xl w-full" />
       <span v-show="!book.title" class="lowercase text-red-700">{{ $t('general.enter-book-title') }}</span>
     </div>
-    <div>
+    <!-- <div>
       <label for="book-desc">{{ $t('general.enter-description') }}</label>
       <Textarea v-model="book.desc" id="book-desc" class="w-full h-32" placeholder="..." />
-    </div>
+    </div> -->
     <div>
       <label for="book-tags" class="mt-3 mb-1">{{ $t('general.tags') }}</label>
       <Chips v-model="book.tags" id="book-tags" />
@@ -120,7 +120,7 @@ const customBase64Uploader = async (event) => {
 <style scoped>
 fieldset {
   max-width:90%;
-  margin: 20px auto; 
-  
+  margin: 20px auto;
+
 }
 </style>

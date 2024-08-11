@@ -34,10 +34,10 @@ const testViewerUrl = computed(() => {
 
 const openInTestViewer = async () => {
   if (testId.value) {
-    console.log('Opening TestViewer with testId:', testId.value);
+    // console.log('Opening TestViewer with testId:', testId.value);
     try {
       const result = await window.electron.openTestViewer(testId.value);
-      console.log('openTestViewer result:', result);
+      // console.log('openTestViewer result:', result);
       if (result.success) {
         toast.add({ severity: 'success', detail: t('general.testviewer-opened'), life: 3000 });
       } else {

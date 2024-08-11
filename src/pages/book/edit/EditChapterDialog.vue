@@ -14,10 +14,10 @@ const ch = ref(props.chapter)
         <InputText v-model="ch.title" class="w-full" autocomplete="off" />
         <span v-show="!ch.title" class="text-sm text-red-700">{{ $t('general.required-field') }}</span>
       </label>
-      <label>
+      <!-- <label>
         {{ $t('general.enter-description') }}
         <Textarea v-model="ch.desc" class="w-full h-32" />
-      </label>
+      </label> -->
       <label>
         {{ $t('general.tags') }}
         <Chips v-model="ch.tags" id="chapter-tags" class="w-full" />

@@ -1,6 +1,6 @@
 <template>
   <div class="editor-container">
-    <Button v-if="!editing" @click="startEdit" icon="pi pi-pencil" class="edit-button" />
+    <Button v-if="!editing" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     <div v-if="!editing" ref="htmlContent" class="ql-editor" :style="{ backgroundColor: backgroundColor }" v-html="html"></div>
     <div v-else>
       <div class="flex justify-end mt-2 edit-controls">
@@ -15,7 +15,9 @@
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
 import { useUserStore } from '../../stores/user';
+import { useI18n } from 'vue-i18n'
 
+const { t } = useI18n()
 const props = defineProps(['html', 'backgroundColor']);
 const emit = defineEmits(['content-updated']);
 const userSt = useUserStore();
@@ -24,8 +26,8 @@ const editing = ref(false);
 const editedContent = ref(props.html);
 const originalContent = ref(props.html);
 let editorInstance = null;
-const containerBackgroundColor = ref(''); 
-const textBackgroundColor = ref(''); 
+const containerBackgroundColor = ref('');
+const textBackgroundColor = ref('');
 
 watch(() => userSt.darkMode, (newVal) => {
   editorConfig.value = getEditorConfig(newVal);
@@ -126,7 +128,7 @@ const saveEdit = () => {
     const doc = parser.parseFromString(editedContent.value, 'text/html');
 
     const borderColor = userSt.darkMode ? '#888888' : '#BEBEBE';
-    
+
     const tables = doc.querySelectorAll('table');
     tables.forEach(table => {
       table.style.borderColor = borderColor;
@@ -155,7 +157,7 @@ const saveEdit = () => {
     html: editedContent.value,
     backgroundColor: containerBackgroundColor.value
   };
- 
+
     emit('content-updated', updatedContent);
   destroyTinyMCE();
 };
@@ -185,9 +187,9 @@ onMounted(async () => {
     let parsedContent;
     try {
       parsedContent = JSON.parse(props.html);
-      
+
     } catch (error) {
-      editedContent.value = props.html; 
+      editedContent.value = props.html;
     }
   }
   const baseUrl = await getTinyMCEBaseUrl();
@@ -227,9 +229,9 @@ onBeforeUnmount(() => {
   position: absolute;
   top: 0;
   left: 0;
-  width: 30px;
+  /* width: 30px; */
   height: 30px;
-  padding: 0;
+  padding: 0 5px;
   display: flex;
   align-items: center;
   justify-content: center;
