@@ -139,5 +139,16 @@ export default {
     "view-chapters": "Разделы",
     "table-of-contents": "Главы",
     "cover": "Обложка",
-    "add-subchapter": "Добавить раздел"
+    "add-subchapter": "Добавить раздел",
+    "actions": "Действия",
+
+    "uploadError": "Ошибка загрузки",
+    "uploadSuccess": "Успешно загружено",
+    "saveError": "Ошибка сохранения",
+    "saveSuccess": "Успешно сохранено",
+    "noFileSelected": "Файл не выбран",
+    "invalidFilePath": "Неверный путь к файлу",
+    "fileUploaded": "Файл {name} успешно загружен",
+    "pptUpdated": "Презентация PowerPoint обновлена",
+    "noFileToSave": "Нет файла для сохранения",
 }

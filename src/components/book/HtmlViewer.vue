@@ -44,7 +44,6 @@ function getEditorConfig(isDarkMode) {
     base_url: '',
     suffix: '.min',
     height: 'calc(100vh - 330px)',
-    width: 'calc(100vw - 440px)',
     plugins: 'preview importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media codesample table charmap pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help quickbars emoticons',
     automatic_uploads: false,
     promotion: false,
@@ -74,6 +73,7 @@ function getEditorConfig(isDarkMode) {
     content_css: isDarkMode ? 'dark' : 'default',
     statusbar: false,
     language: 'ru',
+    toolbar: 'undo redo | styles | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
     setup: (editor) => {
       editorInstance = editor;
       editor.on('init', () => {
@@ -103,7 +103,6 @@ function getEditorConfig(isDarkMode) {
         }
       });
     },
-    content_style: `table { border-collapse: collapse; } table, th, td { border: 1px solid ${borderColor}; }`,
   };
 }
 
@@ -120,12 +119,15 @@ const cancelEdit = () => {
 };
 
 const saveEdit = () => {
+  // console.log(editedContent.value);
+
   if (editedContent.value.trim() === '') {
     originalContent.value = '';
     editing.value = false;
   } else {
     const parser = new DOMParser();
     const doc = parser.parseFromString(editedContent.value, 'text/html');
+  console.log(doc);
 
     const borderColor = userSt.darkMode ? '#888888' : '#BEBEBE';
 
@@ -158,7 +160,7 @@ const saveEdit = () => {
     backgroundColor: containerBackgroundColor.value
   };
 
-    emit('content-updated', updatedContent);
+  emit('content-updated', updatedContent);
   destroyTinyMCE();
 };
 
@@ -245,5 +247,38 @@ onBeforeUnmount(() => {
 
 .edit-controls {
   margin-bottom: 10px;
+}
+:deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ccc;
+}
+
+:deep(table th),
+:deep(table td) {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+:deep(table thead) {
+  background-color: #f9f9f9;
+}
+
+:deep(img),
+:deep(svg),
+:deep(video),
+:deep(canvas),
+:deep(audio),
+:deep(iframe),
+:deep(embed),
+:deep(object){
+  display: initial !important;
+  vertical-align: initial !important;
+}
+:deep(ol),
+:deep(ul),
+:deep(menu){
+    list-style: inside;
 }
 </style>

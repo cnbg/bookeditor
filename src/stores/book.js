@@ -1,10 +1,9 @@
 import { defineStore } from 'pinia'
 import { v4 as uuid } from 'uuid'
-import books from '../data/books'
 
 export const useBookStore = defineStore('book', {
     state: () => ({
-        books: books,
+        books: [],
         book: null,
         bookFileName: null,
         chapter: null,
@@ -56,8 +55,6 @@ export const useBookStore = defineStore('book', {
                 if(s.length > 0) {
                     return chapter.parent === parentId && (
                         chapter.title.match(new RegExp(s, 'i'))
-                        // || chapter.desc.match(new RegExp(s, 'i'))
-                        // || chapter.tags.includes(s)
                     )
                 }
                 return chapter.parent === parentId
@@ -75,8 +72,8 @@ export const useBookStore = defineStore('book', {
             book.pages = 0
             book.chapters = []
 
-            this.books.push(book)  // Ensure this.books is an array and push the new book
-            console.log('Books after push:', this.books); // Debug log to check if book is added
+            this.books.push(book)
+            console.log('Books after push:', this.books);
             const fileName = await window.electron.getBookFileName(book.id) || `${book.id}.json`
             await window.electron.updateBook(JSON.parse(JSON.stringify(book)), fileName)
         },
@@ -127,7 +124,6 @@ export const useBookStore = defineStore('book', {
             this.chapter = chapter
             this.book.chapters = this.book.chapters?.map(ch => ch.id === chapter.id ? chapter : ch)
 
-            // Ensure bookFileName is correctly set before updating the book
             if (!this.bookFileName) {
                 this.bookFileName = await window.electron.getBookFileName(this.book.id);
             }
@@ -136,9 +132,8 @@ export const useBookStore = defineStore('book', {
         },
         async reorderChapters(newOrder) {
             this.book.chapters = this.updateChapterOrder(this.book.chapters, newOrder);
-            await this.updateBook(this.book);  // This will save the changes to the file
+            await this.updateBook(this.book);
         },
-
         updateChapterOrder(originalChapters, newOrder) {
             const updatedChapters = [...originalChapters];
 
@@ -149,7 +144,6 @@ export const useBookStore = defineStore('book', {
               }
             });
 
-            // Sort the chapters based on the new order
             updatedChapters.sort((a, b) => a.order - b.order);
 
             return updatedChapters;
@@ -196,16 +190,6 @@ export const useBookStore = defineStore('book', {
             this.editing = false
         },
         updateBlock(content = '') {
-            // this.chapter?.blocks?.push({
-            //     ...this.block,
-            //     ...{
-            //         id: uuid(),
-            //         content: content,
-            //     },
-            // })
-
-            // this.updateChapter(this.chapter)
-
             this.block = null
             this.editing = false
         },
@@ -213,7 +197,6 @@ export const useBookStore = defineStore('book', {
             if (this.chapter && this.chapter.blocks) {
                 const testBlockIndex = this.chapter.blocks.findIndex(block => block.type === 'test');
                 if (testBlockIndex !== -1) {
-                    // Update existing test block
                     this.chapter.blocks[testBlockIndex] = {
                         ...this.chapter.blocks[testBlockIndex],
                         content: {
@@ -223,7 +206,6 @@ export const useBookStore = defineStore('book', {
                         }
                     };
                 } else {
-                    // Create new test block
                     this.chapter.blocks.push({
                         id: crypto.randomUUID(),
                         type: 'test',
@@ -238,11 +220,6 @@ export const useBookStore = defineStore('book', {
             }
         },
         async updateBlockContent(index, updatedContent) {
-         /*    if (!updatedContent || typeof updatedContent !== 'object') {
-                console.error('Expected updatedContent to be an object:', updatedContent);
-                return;
-            } */
-
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[index]) {
                 if (!updatedContent.html || updatedContent.html.trim() === '') {
                     this.chapter.blocks.splice(index, 1);
@@ -255,55 +232,54 @@ export const useBookStore = defineStore('book', {
                 await this.saveBookToFile();
             }
         },
-
         async updateImageBlock(blockIndex, imageIndex, updatedImage) {
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[blockIndex] && this.chapter.blocks[blockIndex].content[imageIndex]) {
               this.chapter.blocks[blockIndex].content[imageIndex] = updatedImage;
               await this.saveBookToFile();
             }
-          },
-          async deleteImageBlock(blockIndex, imageIndex) {
+        },
+        async deleteImageBlock(blockIndex, imageIndex) {
             if (this.chapter && this.chapter.blocks) {
                 this.chapter.blocks.splice(blockIndex, 1);
                 await this.saveBookToFile();
             }
-          },
-          async updateVideoBlock(blockIndex, updatedVideo) {
+        },
+        async updateVideoBlock(blockIndex, updatedVideo) {
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[blockIndex]) {
               this.chapter.blocks[blockIndex].content = updatedVideo;
               await this.saveBookToFile();
             }
-          },
-          async deleteVideoBlock(blockIndex) {
+        },
+        async deleteVideoBlock(blockIndex) {
             if (this.chapter && this.chapter.blocks) {
               this.chapter.blocks.splice(blockIndex, 1);
               await this.saveBookToFile();
             }
-          },
-          async updateModelBlock(blockIndex, updatedModel) {
+        },
+        async updateModelBlock(blockIndex, updatedModel) {
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[blockIndex]) {
               this.chapter.blocks[blockIndex].content = updatedModel;
               await this.saveBookToFile();
             }
-          },
-          async deleteModelBlock(blockIndex) {
+        },
+        async deleteModelBlock(blockIndex) {
             if (this.chapter && this.chapter.blocks) {
               this.chapter.blocks.splice(blockIndex, 1);
               await this.saveBookToFile();
             }
-          },
-          async updatePptBlock(blockIndex, updatedPpt) {
+        },
+        async updatePptBlock(blockIndex, updatedPpt) {
             if (this.chapter && this.chapter.blocks && this.chapter.blocks[blockIndex]) {
               this.chapter.blocks[blockIndex].content = updatedPpt;
               await this.saveBookToFile();
             }
-          },
-          async deletePptBlock(blockIndex) {
+        },
+        async deletePptBlock(blockIndex) {
             if (this.chapter && this.chapter.blocks) {
               this.chapter.blocks.splice(blockIndex, 1);
               await this.saveBookToFile();
             }
-          },
+        },
         async saveBookToFile() {
             if (!this.bookFileName) {
                 console.error('Cannot save book: missing file name.');
@@ -332,9 +308,7 @@ export const useBookStore = defineStore('book', {
                 this.block = { ...existingHtmlBlock };
               }
             }
-          },
-
-
+        },
         closeEditor() {
             this.editing = false
             this.block = null
@@ -358,6 +332,5 @@ export const useBookStore = defineStore('book', {
                 ...obj,
             };
         },
-
     },
 })

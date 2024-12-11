@@ -18,19 +18,29 @@ export async function exportBookAsZip(book) {
 
   const fetchPromises = [];
 
-  const resolvePath = (path) => {
-    const isPackaged = process.env.NODE_ENV === 'production';
-     const resourcesPath = process.env.NODE_ENV === 'resourcesPath';
-    const resolvedPath = isPackaged ? path.replace(resourcesPath, '/resources/data/', 'resources/data/') : path;
-    return resolvedPath;
+  const resolvePath = async (path) => {
+    if (!path) return '';
+    
+    const isPackaged = await window.electron.isPackaged();
+    // Remove any leading '/src' or '/resources'
+    const cleanPath = path.replace(/^\/(src|resources)\//, '');
+    
+    // For packaged app, point directly to the resources/data folder
+    if (isPackaged) {
+      return path.replace('/src/data', 'resources/data');
+    }
+    
+    // For development
+    return `/src/${cleanPath}`;
   };
+  
 
   const resolveFileName = (path, baseFolder) => {
-    const isPackaged = process.env.NODE_ENV === 'production';
-    const relativePath = isPackaged ? path.split(`../resources/data/${baseFolder}/`)[1] : path.split(`/src/data/${baseFolder}/`)[1];
-    const fileName = `data/${baseFolder}/${relativePath}`;
-    return fileName;
-
+    if (!path) return '';
+    
+    // For packaged app, handle paths with 'src' or 'resources'
+    const fileName = path.split(/\/(src|resources)\/data\/[^/]+\//)[2] || path.split('/').pop();
+    return `data/${baseFolder}/${fileName}`;
   };
 
   if (book.chapters) {
@@ -61,16 +71,18 @@ export async function exportBookAsZip(book) {
     book.chapters.forEach(chapter => {
       if (chapter.blocks) {
         chapter.blocks.forEach(block => {
-          if (block.type === 'video' && block.content.html && block.content.html.path) {
-            if (typeof block.content.html.path === 'string') {
-              const videoPath = resolvePath(block.content.html.path);
-              const fetchPromise = fetch(videoPath)
+          if (block.type === 'video') {
+            // Check both content.html.path and content.path
+            const videoPath = block.content.html?.path || block.content.path;
+            if (videoPath) {
+              const resolvedVideoPath = resolvePath(videoPath);
+              const fetchPromise = fetch(resolvedVideoPath)
                 .then(res => res.blob())
                 .then(blob => {
-                  const fileName = resolveFileName(block.content.html.path, 'videos');
+                  const fileName = resolveFileName(videoPath, 'videos');
                   zip.file(fileName, blob);
                 })
-                .catch(error => console.error(`Failed to fetch video: ${block.content.html.path}`, error));
+                .catch(error => console.error(`Failed to fetch video: ${videoPath}`, error));
               fetchPromises.push(fetchPromise);
             }
           }
@@ -105,16 +117,20 @@ export async function exportBookAsZip(book) {
     book.chapters.forEach(chapter => {
       if (chapter.blocks) {
         chapter.blocks.forEach(block => {
-          if (block.type === 'powerpoint' && block.content.html && block.content.html.path) {
-            const pptPath = resolvePath(block.content.html.path);
-            const fetchPromise = fetch(pptPath)
-              .then(res => res.blob())
-              .then(blob => {
-                const fileName = resolveFileName(block.content.html.path, 'ppt');
-                zip.file(fileName, blob);
-              })
-              .catch(error => console.error(`Failed to fetch PowerPoint: ${block.content.html.path}`, error));
-            fetchPromises.push(fetchPromise);
+          if ((block.type === 'ppt' || block.type === 'powerpoint')) {
+            // Check both content.html.path and content.path since the structure can vary
+            const pptPath = block.content.html?.path || block.content.path;
+            if (pptPath) {
+              const resolvedPptPath = resolvePath(pptPath);
+              const fetchPromise = fetch(resolvedPptPath)
+                .then(res => res.blob())
+                .then(blob => {
+                  const fileName = resolveFileName(pptPath, 'ppt');
+                  zip.file(fileName, blob);
+                })
+                .catch(error => console.error(`Failed to fetch PowerPoint: ${pptPath}`, error));
+              fetchPromises.push(fetchPromise);
+            }
           }
         });
       }

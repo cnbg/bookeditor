@@ -5,42 +5,47 @@
         <span class="file-name">{{ pptFileName }}</span>
       </p>
       <div class="d-flex flex-row">
-      <Button v-if="pptFilePath" @click="openPowerPoint" class="btn-view">
-        {{ $t('general.open') }}
-      </Button>
-      <div v-if="editing" class="flex justify-end gap-2 edit-controls">
-        <FileUpload mode="basic" name="ppt" accept=".ppt,.pptx"
-                    customUpload @uploader="fileUploader" auto
-                    :chooseLabel="$t('general.select-file')" />
-        <Button @click="deletePpt" icon="pi pi-trash" severity="danger" />
-        <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />
-        <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger"
-                severity="secondary" />
+        <Button v-if="pptFilePath" @click="openPowerPoint" class="btn-view">
+          {{ $t('general.open') }}
+        </Button>
+        <div v-if="editing" class="flex justify-end gap-2 edit-controls">
+          <FileUpload mode="basic" name="ppt" customUpload @uploader="fileUploader" auto
+                      :chooseLabel="$t('general.select-file')" />
+          <Button @click="deletePpt" icon="pi pi-trash" severity="danger" />
+          <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />
+          <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger"
+                  severity="secondary" />
+        </div>
+        <Button v-else @click="showEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
       </div>
-      <Button v-else @click="showEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
-    </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { defineProps, ref, onMounted, defineEmits } from 'vue';
+import { defineProps, ref, onMounted, defineEmits, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useBookStore } from '../../stores/book';
 import { useToast } from 'primevue/usetoast';
 
 const props = defineProps({
   pptFilePath: {
     type: String,
     default: ''
+  },
+  chapterId: {
+    type: String,
+    required: true
   }
 });
+
 const { t } = useI18n();
 const emit = defineEmits(['content-updated', 'delete-ppt']);
+const toast = useToast();
 
-const pptFileName = ref(getFileName(props.pptFilePath));
+const pptFileName = ref('');
 const resolvedPptFilePath = ref('');
 const editing = ref(false);
+const file = ref({});
 
 const openPowerPoint = async () => {
   if (resolvedPptFilePath.value) {
@@ -53,15 +58,36 @@ function getFileName(filePath) {
   return filePath.split('/').pop().split('\\').pop();
 }
 
-const resolveFilePath = async (filePath) => {
+const modifyPath = async (path) => {
+  if (!path) return '';
   try {
     const isPackaged = await window.electron.isPackaged();
     if (isPackaged) {
-      return await window.electron.resolvePath(filePath);
+      // Remove 'src' from the beginning of the path for packaged app
+      return path.replace(/^\/src\//, '/');
     }
-    return await window.electron.resolvePath(filePath);
+    return path;
+  } catch (error) {
+    console.error('Error checking package status:', error);
+    return path;
+  }
+};
+
+const resolveFilePath = async (filePath) => {
+  if (!filePath) return '';
+  
+  try {
+    const modifiedPath = await modifyPath(filePath);
+    const isPackaged = await window.electron.isPackaged();
+    console.log('isPackaged', isPackaged);
+    
+    const resolvedPath = await window.electron.resolvePath(modifiedPath);
+    console.log('Modified path:', modifiedPath);
+    console.log('Resolved path:', resolvedPath);
+    return resolvedPath;
   } catch (error) {
     console.error('Error resolving path:', error);
+    return filePath;
   }
 };
 
@@ -69,23 +95,67 @@ onMounted(async () => {
   resolvedPptFilePath.value = await resolveFilePath(props.pptFilePath);
 });
 
-const file = ref({});
+watch(() => props.pptFilePath, async (newPath) => {
+  if (newPath) {
+    console.log('Original PPT path:', newPath);
+    const modifiedPath = await modifyPath(newPath);
+    console.log('Modified PPT path:', modifiedPath);
+    pptFileName.value = getFileName(modifiedPath);
+    resolvedPptFilePath.value = await resolveFilePath(modifiedPath);
+  } else {
+    pptFileName.value = '';
+    resolvedPptFilePath.value = '';
+  }
+}, { immediate: true });
 
 const fileUploader = async (event) => {
   const selectedFile = event.files[0];
-  const filePath = selectedFile.path;
+  if (!selectedFile) {
+    toast.add({
+      severity: 'error',
+      summary: t('general.uploadError'),
+      detail: t('general.noFileSelected')
+    });
+    return;
+  }
+
+  const filePath = selectedFile.path || selectedFile.webkitRelativePath || selectedFile.name;
   const fileName = selectedFile.name;
 
+  if (!filePath) {
+    toast.add({
+      severity: 'error',
+      summary: t('general.uploadError'),
+      detail: t('general.invalidFilePath')
+    });
+    return;
+  }
+
   try {
-    const response = await window.electron.uploadPpt(filePath, fileName, 'src/data/ppt/');
+    const targetDir = await window.electron.isPackaged() ? 'data/ppt/' : 'src/data/ppt/';
+    const response = await window.electron.uploadPpt(filePath, fileName, targetDir);
     if (response.success) {
       file.value = {
         ...selectedFile,
+        name: response.fileName,
         path: response.filePath,
       };
-      pptFileName.value = fileName;
+      pptFileName.value = response.fileName;
+      resolvedPptFilePath.value = await resolveFilePath(response.filePath);
+
+      const newContent = {
+        name: response.fileName,
+        path: response.filePath,
+      };
+
+      emit('content-updated', newContent);
+
+      toast.add({
+        severity: 'success',
+        summary: t('general.uploadSuccess'),
+        detail: t('general.fileUploaded', { name: response.fileName })
+      });
     } else {
-      console.error('Error uploading PowerPoint:', response.message);
       toast.add({
         severity: 'error',
         summary: t('general.uploadError'),
@@ -102,7 +172,7 @@ const fileUploader = async (event) => {
   }
 };
 
-const saveEdit = () => {
+const saveEdit = async () => {
   if (!file.value.path || file.value.path === props.pptFilePath) {
     editing.value = false;
     return;
@@ -112,12 +182,20 @@ const saveEdit = () => {
     name: file.value.name,
     path: file.value.path,
   };
+
   emit('content-updated', content);
+  toast.add({
+    severity: 'success',
+    summary: t('general.saveSuccess'),
+    detail: t('general.pptUpdated')
+  });
+
   editing.value = false;
 };
 
 const cancelEdit = () => {
   editing.value = false;
+  file.value = {};
 };
 
 const deletePpt = () => {
@@ -146,7 +224,6 @@ const showEdit = () => {
 }
 
 .edit-button {
-  /* width: 30px; */
   height: 30px;
   left: 5px;
   padding: 5px 0;

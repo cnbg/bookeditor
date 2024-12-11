@@ -151,9 +151,54 @@ if (!gotTheLock) {
         return saveFile(filePath, fileName, 'models');
     });
 
-    ipcMain.handle('upload-ppt', async (event, { filePath, fileName }) => {
-        return saveFile(filePath, fileName, 'ppt');
-    });
+    ipcMain.handle('upload-ppt', async (event, { filePath, fileName, targetDir }) => {
+        try {
+          const resourcesPath = process.resourcesPath;
+          const appPath = app.getAppPath();
+          let uploadDir;
+          let uploadPath;
+          let sourceFilePath = filePath;
+
+          if (!app.isPackaged) {
+            uploadDir = path.join(appPath, targetDir);
+            uploadPath = path.join(uploadDir, fileName);
+          } else {
+            uploadDir = path.join(resourcesPath, targetDir);
+            uploadPath = path.join(uploadDir, fileName);
+          }
+
+          await fs.promises.mkdir(uploadDir, { recursive: true });
+
+          // If filePath doesn't include a directory path, assume it's in the app's temp directory
+          if (path.dirname(filePath) === '.') {
+            sourceFilePath = path.join(app.getPath('temp'), filePath);
+          }
+
+          // Check if file already exists, if so, append a number to the filename
+          let counter = 1;
+          let finalFileName = fileName;
+          while (await fs.promises.access(uploadPath).then(() => true).catch(() => false)) {
+            const { name, ext } = path.parse(fileName);
+            finalFileName = `${name} (${counter})${ext}`;
+            uploadPath = path.join(uploadDir, finalFileName);
+            counter++;
+          }
+
+          await fs.promises.copyFile(sourceFilePath, uploadPath);
+
+          let relativePath;
+          if (app.isPackaged) {
+            relativePath = path.relative(resourcesPath, uploadPath).replace(/\\/g, '/');
+          } else {
+            relativePath = path.relative(appPath, uploadPath).replace(/\\/g, '/');
+          }
+          return { success: true, filePath: `/${relativePath}`, fileName: finalFileName };
+        } catch (error) {
+          console.error('Error uploading PPT:', error);
+          return { success: false, message: error.message };
+        }
+      });
+
 
     ipcMain.handle('get-paths', async () => {
         const resourcesPath = process.resourcesPath;
@@ -273,17 +318,18 @@ if (!gotTheLock) {
     });
 
     ipcMain.handle('open-ppt-file', async (event, filePath) => {
-        try {
-            if (filePath) {
-                shell.openPath(filePath);
-                return { success: true };
-            } else {
-                throw new Error('File path is not provided.');
-            }
-        } catch (error) {
-            console.error('Error opening PowerPoint file:', error);
-            return { success: false, message: error.message };
+      try {
+        console.log('Opening PPT file:', filePath); // Debug log
+        if (filePath) {
+          await shell.openPath(filePath);
+          return { success: true };
+        } else {
+          throw new Error('File path is not provided.');
         }
+      } catch (error) {
+        console.error('Error opening PowerPoint file:', error);
+        return { success: false, message: error.message };
+      }
     });
 
     ipcMain.handle('resolve-path', (event, filePath) => {
@@ -352,51 +398,76 @@ if (!gotTheLock) {
 
     ipcMain.handle('import-file', async (event, { fileContent, fileName }) => {
         try {
-          const fileExtension = path.extname(fileName).toLowerCase();
-          let subdir;
+            const fileExtension = path.extname(fileName).toLowerCase();
+            let subdir;
 
-          switch (fileExtension) {
-            case '.json':
-              if (fileName.toLowerCase().includes('survey')) {
-                subdir = 'survey';
-              } else {
-                subdir = 'books';
-              }
-              break;
-            case '.png':
-            case '.jpg':
-            case '.jpeg':
-            case '.gif':
-            case '.bmp':
-              subdir = 'images';
-              break;
-            case '.mp4':
-            case '.avi':
-            case '.mov':
-            case '.wmv':
-            case '.flv':
-              subdir = 'videos';
-              break;
-            case '.obj':
-            case '.fbx':
-            case '.gltf':
-            case '.glb':
-              subdir = 'models';
-              break;
-            case '.ppt':
-            case '.pptx':
-              subdir = 'ppt';
-              break;
-            default:
-              throw new Error('Unsupported file type');
-          }
+            switch (fileExtension) {
+                case '.json':
+                    if (fileName.toLowerCase().includes('survey')) {
+                        subdir = 'survey';
+                    } else {
+                        subdir = 'books';
+                    }
+                    break;
 
-          return await saveImportedFile(fileContent, fileName, subdir);
+                // Expanded image file extensions
+                case '.png':
+                case '.jpg':
+                case '.jpeg':
+                case '.gif':
+                case '.bmp':
+                case '.webp':  // Added webp support
+                case '.tiff':  // Added tiff support
+                case '.svg':   // Added svg support
+                case '.ico':   // Added ico support
+                    subdir = 'images';
+                    break;
+
+                // Expanded video file extensions
+                case '.mp4':
+                case '.avi':
+                case '.mov':
+                case '.wmv':
+                case '.flv':
+                case '.mkv':   // Added mkv support
+                case '.webm':  // Added webm support
+                case '.m4v':   // Added m4v support
+                case '.3gp':   // Added 3gp support
+                    subdir = 'videos';
+                    break;
+
+                // Expanded model file extensions
+                case '.obj':
+                case '.fbx':
+                case '.gltf':
+                case '.glb':
+                case '.stl':   // Added stl support
+                case '.dae':   // Added dae support
+                case '.3ds':   // Added 3ds support
+                    subdir = 'models';
+                    break;
+
+                // Expanded PowerPoint file extensions (including old and new presentation types)
+                case '.ppt':
+                case '.pptx':
+                case '.pot':   // Added PowerPoint template file (old format)
+                case '.potx':  // Added PowerPoint template file (new format)
+                case '.pps':   // Added PowerPoint slideshow (old format)
+                case '.ppsx':  // Added PowerPoint slideshow (new format)
+                case '.odp':   // Added odp (OpenDocument Presentation) support
+                    subdir = 'ppt';
+                    break;
+
+                default:
+                    throw new Error('Unsupported file type');
+            }
+
+            return await saveImportedFile(fileContent, fileName, subdir);
         } catch (error) {
-          console.error('Error importing file:', error);
-          return { success: false, message: error.message };
+            console.error('Error importing file:', error);
+            return { success: false, message: error.message };
         }
-      });
+    });
 
     ipcMain.handle('import-book', async (event, book) => {
         const saveBookFile = async (book, fileName, subdir) => {

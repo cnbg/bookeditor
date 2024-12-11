@@ -137,5 +137,17 @@ export default {
     "new-chapter": "Бөлүм кошуу",
     "new-subchapter": "Бөлүмчө кошуу",
     "table-of-contents": "Бөлүмдөр",
-    "cover": "Мукаба"
+    "cover": "Мукаба",
+    "actions": "Аракеттер",
+
+    "uploadError": "Жүктөө катасы",
+    "uploadSuccess": "Ийгиликтүү жүктөлдү",
+    "saveError": "Сактоо катасы",
+    "saveSuccess": "Ийгиликтүү сакталды",
+    "noFileSelected": "Файл тандалган жок",
+    "invalidFilePath": "Жараксыз файл жолу",
+    "fileUploaded": "{name} файлы ийгиликтүү жүктөлдү",
+    "pptUpdated": "PowerPoint презентациясы жаңыртылды",
+    "noFileToSave": "Сактоо үчүн файл жок",
+
 }

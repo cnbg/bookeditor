@@ -36,8 +36,7 @@ const save = () => {
 <template>
   <div>
     <div class="flex flex-wrap justify-between gap-5">
-      <FileUpload mode="basic" name="cover" accept=".obj,.fbx,.glb,.gltf,.stl,.amf,.iges,.max,.stp,.x3d,.vrml,.3ds,.3mf,.dae"
-                  customUpload @uploader="fileUploader" auto
+      <FileUpload mode="basic" name="cover" customUpload @uploader="fileUploader" auto
                   :chooseLabel="$t('general.select-file')" />
 
       <Button v-if="file.path" @click="save" icon="pi pi-save"

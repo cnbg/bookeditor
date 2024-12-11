@@ -3,15 +3,18 @@
     <div v-if="!editing" class="model-container" @mouseover="showEdit" @mouseleave="hideEdit">
       <Fieldset>
       <model-viewer tone-mapping="neutral" shadow-intensity="1" ar camera-controls touch-action="pan-y"
-        :src="model.path" :alt="model.name" class="h-96 mx-auto w-full" >
+        :src="model.path" :alt="model.name" bounds="tight"
+          enable-pan
+          environment-image="neutral"
+          poster="poster.webp"
+          autoplay class="h-96 mx-auto w-full" >
       </model-viewer>
       </Fieldset>
       <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     </div>
     <div v-else class="model-container">
       <div class="flex justify-end gap-2 edit-controls">
-        <FileUpload mode="basic" name="cover" accept=".obj,.fbx,.glb,.gltf,.stl,.amf,.iges,.max,.stp,.x3d,.vrml,.3ds,.3mf"
-                  customUpload @uploader="fileUploader" auto
+        <FileUpload mode="basic" name="cover" customUpload @uploader="fileUploader" auto
                   :chooseLabel="$t('general.select-file')" />
         <Button @click="deleteModel" icon="pi pi-trash" severity="danger" />
         <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />

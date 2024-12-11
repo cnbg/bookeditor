@@ -2,14 +2,18 @@
   <BookListPage />
   <Dialog v-model:visible="dialogVisible" modal style="max-width: 500px;" @hide="navigateHome">
     <div class="p-4">
-      <div class="file-dummy" :class="{ 'drag-active': dragActive }">
-        <label for="fileInput" class="drop-container" id="dropcontainer" 
+      <div v-if="!isImporting" class="file-dummy" :class="{ 'drag-active': dragActive }">
+        <label for="fileInput" class="drop-container" id="dropcontainer"
              @dragover.prevent @dragenter="dragActive = true" @dragleave="dragActive = false" @drop="handleDrop">
-        <i class="pi pi-upload" style="font-size: 2.5rem; color:#949191;"></i>
-        <span class="drop-titlee">{{ $t('general.drop-here') }}</span>
-        <Button @click="openFileInput"><i class="pi pi-upload" style="font-size: 1rem; margin-right: 8px;"></i> {{ $t('general.select-file') }}</Button>
-        <input type="file" id="fileInput" ref="fileInput" @change="handleFileChange" accept=".zip" style="display: none;" />
-      </label>
+          <i class="pi pi-upload" style="font-size: 2.5rem; color:#949191;"></i>
+          <span class="drop-titlee">{{ $t('general.drop-here') }}</span>
+          <Button @click="openFileInput"><i class="pi pi-upload" style="font-size: 1rem; margin-right: 8px;"></i> {{ $t('general.select-file') }}</Button>
+          <input type="file" id="fileInput" ref="fileInput" @change="handleFileChange" accept=".zip" style="display: none;" />
+        </label>
+      </div>
+      <div v-else class="flex flex-column align-items-center justify-content-center" style="height: 200px;">
+        <ProgressSpinner style="width: 50px; height: 50px;" strokeWidth="8" fill="var(--surface-ground)" animationDuration=".5s" />
+        <span class="mt-3">{{ $t('general.importing') }}</span>
       </div>
       <div class="mt-4" v-if="errorMessage">
         <span class="text-red-500">{{ errorMessage }}</span>
@@ -17,6 +21,7 @@
     </div>
   </Dialog>
 </template>
+
 <script setup>
 import { ref } from 'vue';
 import { useToast } from 'primevue/usetoast';
@@ -24,12 +29,14 @@ import JSZip from 'jszip';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import BookListPage from '../ListPage.vue';
+import ProgressSpinner from 'primevue/progressspinner';
 
 const { t } = useI18n();
 const toast = useToast();
 const dialogVisible = ref(true);
 const errorMessage = ref('');
 const dragActive = ref(false);
+const isImporting = ref(false);
 const router = useRouter();
 
 const navigateHome = () => {
@@ -46,6 +53,9 @@ const openFileInput = () => {
 const handleFileChange = async (event) => {
   const file = event.target.files[0];
   if (!file) return;
+
+  isImporting.value = true;
+  errorMessage.value = '';
 
   try {
     const zip = await JSZip.loadAsync(file);
@@ -73,6 +83,8 @@ const handleFileChange = async (event) => {
                 subdir = 'models'; break;
               case 'ppt':
                 subdir = 'ppt'; break;
+              case 'powerpoint':
+                subdir = 'ppt'; break;
              case 'survey':
                 subdir = 'survey'; break;
               default:
@@ -92,8 +104,11 @@ const handleFileChange = async (event) => {
     dialogVisible.value = false;
     navigateHome();
   } catch (error) {
-    errorMessage.value = toast.add({ severity: 'error', summary: t('general.import-failed'), life: 3000 });
-    errorMessage.value = toast.add({ severity: 'error', summary: t('general.choose-zip-zile'), life: 4000 });
+    errorMessage.value = t('general.import-failed');
+    toast.add({ severity: 'error', summary: t('general.import-failed'), life: 3000 });
+    toast.add({ severity: 'error', summary: t('general.choose-zip-file'), life: 4000 });
+  } finally {
+    isImporting.value = false;
   }
 };
 

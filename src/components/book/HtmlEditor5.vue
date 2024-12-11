@@ -91,6 +91,7 @@ function getEditorConfig(isDarkMode) {
     content_css: isDarkMode ? 'dark' : 'default',
     statusbar: false,
     language: 'ru',
+    toolbar: 'undo redo | styles | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
     setup: (editor) => {
       editor.on('init', () => {
         editor.setContent(props.html);
@@ -124,5 +125,37 @@ onBeforeUnmount(() => {
 });
 </script>
 
-<style>
+<style scoped>
+:deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  border: 1px solid #ccc;
+}
+
+:deep(table th),
+:deep(table td) {
+  border: 1px solid #ccc;
+  padding: 8px;
+  text-align: left;
+}
+
+:deep(table thead) {
+  background-color: #f9f9f9;
+}
+:deep(img),
+:deep(svg),
+:deep(video),
+:deep(canvas),
+:deep(audio),
+:deep(iframe),
+:deep(embed),
+:deep(object){
+  display: initial !important;
+  vertical-align: initial !important;
+}
+:deep(ol),
+:deep(ul),
+:deep(menu){
+    list-style: inside;
+}
 </style>

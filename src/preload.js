@@ -11,9 +11,13 @@ contextBridge.exposeInMainWorld('electron', {
   getBookFileName: (bookId) => ipcRenderer.invoke('get-book-filename', bookId),
   deleteBook: (fileName) => ipcRenderer.invoke('delete-book', fileName),
   getTinyMCEBaseUrl: async () => await ipcRenderer.invoke('get-tinymce-base-path'),
-  uploadPpt: (filePath, fileName) => ipcRenderer.invoke('upload-ppt', { filePath, fileName }),
-  openPptFile: (filePath) => ipcRenderer.invoke('open-ppt-file', filePath),
-  resolvePath: (filePath) => ipcRenderer.invoke('resolve-path', filePath),
+  uploadPpt: (filePath, fileName, targetDir) => ipcRenderer.invoke('upload-ppt', { filePath, fileName, targetDir }),
+  resolvePath: (filePath) => {
+    return ipcRenderer.invoke('resolve-path', filePath);
+  },
+  openPptFile: (filePath) => {
+    return ipcRenderer.invoke('open-ppt-file', filePath);
+  },
   isPackaged: () => ipcRenderer.invoke('is-packaged'),
   saveSurvey: (survey, fileName) => ipcRenderer.invoke('save-survey', survey, fileName),
   getSurvey: (fileName) => ipcRenderer.invoke('get-survey', fileName),

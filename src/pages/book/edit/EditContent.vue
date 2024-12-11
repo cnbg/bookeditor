@@ -65,8 +65,7 @@ const items = ref([
   {label: t('general.add-video'), icon: 'pi pi-video', command: () => {bookSt.setEditor('video')}},
   {label: t('general.add-model'), icon: 'pi pi-box', command: () => {bookSt.setEditor('model')}},
   {label: t('general.add-test'), icon: 'pi pi-list', command: () => {bookSt.setEditor('test')}},
-  {label: t('general.add-powerpoint'), icon: 'pi pi-file-plus', command: () => {bookSt.setEditor('powerpoint')}},
-
+  {label: t('general.add-powerpoint'), icon: 'pi pi-file-plus', command: () => {bookSt.setEditor('ppt')}},
   {separator: true},
   {label: t('general.delete'), icon: 'pi pi-times', command: () => {confirmDeleteDialog()}},
 ])
@@ -86,7 +85,7 @@ const items = ref([
         </div>
         <div v-show="!bookSt.editing">
           <button class="p-panel-header-icon p-link" @click="toggleEditMenu">
-            <span class="pi pi-cog"></span>
+            <span class="pi pi-list"></span> {{$t('general.actions')}}
           </button>
           <Menu ref="editMenu" :model="items" popup />
         </div>
@@ -97,15 +96,14 @@ const items = ref([
         <Button @click="bookSt.setEditor('video')" size="small" icon="pi pi-video" :label="t('general.add-video')" text />
         <Button @click="bookSt.setEditor('model')" size="small" icon="pi pi-box" :label="t('general.add-model')" text />
         <Button @click="bookSt.setEditor('test')" size="small" icon="pi pi-list" :label="t('general.add-test')" text />
-        <Button @click="bookSt.setEditor('powerpoint')" size="small" icon="pi pi-file-plus" :label="t('general.add-powerpoint')" text />
-
+        <Button @click="bookSt.setEditor('ppt')" size="small" icon="pi pi-file-plus" :label="t('general.add-powerpoint')" text />
       </div>
       <hr class="my-2">
       <div v-if="bookSt.editing">
         <ContentEditor />
       </div>
       <ScrollPanel v-else class="" style="height: calc(100vh - 283px)">
-        <ContentViewer :chapter="bookSt.chapter" />
+        <ContentViewer :chapter="bookSt.chapter" class="mr-4" />
         <ScrollTop target="parent" :threshold="100" icon="pi pi-arrow-up" />
       </ScrollPanel>
     </Panel>

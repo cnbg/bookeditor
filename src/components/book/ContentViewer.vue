@@ -41,8 +41,9 @@
         :test="block.content.html ? block.content.html : block.content"
       />
       <PptViewer
-        v-else-if="block && block.type === 'powerpoint'"
-        :pptFilePath="block.content.html ? block.content.html.path : block.content.path"
+        v-else-if="block && (block.type === 'ppt' || block.type === 'powerpoint')"
+        :pptFilePath="block.content.path"
+        :chapterId="chapter.id"
         @content-updated="updatePpt(index, $event)"
         @delete-ppt="deletePpt(index)"
       />
