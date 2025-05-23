@@ -1,14 +1,18 @@
+
 import { app, BrowserWindow, nativeTheme, ipcMain, shell } from 'electron';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import fs from 'original-fs';
+import fs from 'fs';
+// Remove squirrel startup import completely
 const fsOld = require('fs');
 const { exec } = require('child_process');
 
 const fsPromises = fs.promises;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Remove squirrel startup check completely
 
 // Ensure single instance
 const gotTheLock = app.requestSingleInstanceLock();
@@ -35,7 +39,8 @@ if (!gotTheLock) {
                 preload: path.join(__dirname, 'preload.js'),
                 devTools: true,
                 webSecurity: false,
-                nodeIntegration: true, // nodeIntegration should be false for security
+                nodeIntegration: false,
+                contextIsolation: true,
             },
             icon: 'src/data/icon.png'
         });
@@ -55,6 +60,7 @@ if (!gotTheLock) {
         }
     };
 
+    // Rest of your code remains exactly the same...
     app.whenReady().then(() => {
         createWindow();
 
@@ -83,10 +89,6 @@ if (!gotTheLock) {
             app.quit();
         }
     });
-
-    if (require('electron-squirrel-startup')) {
-        app.quit();
-    }
 
     ipcMain.handle('get-tinymce-base-path', async () => {
         if (!app.isPackaged) {
@@ -126,17 +128,62 @@ if (!gotTheLock) {
         const resourcesPath = process.resourcesPath;
         const appPath = app.getAppPath();
         let savePath;
-
+    
         if (!app.isPackaged) {
             savePath = path.join(appPath, 'src', 'data', subdir, fileName);
         } else {
             savePath = path.join(resourcesPath, 'data', subdir, fileName);
         }
-
-        await fsPromises.mkdir(path.dirname(savePath), { recursive: true });
-        await fsPromises.writeFile(savePath, Buffer.from(fileContent));
-
-        return { success: true, filePath: savePath };
+    
+        try {
+            await fsPromises.mkdir(path.dirname(savePath), { recursive: true });
+            
+            // Determine if fileContent is base64 encoded or binary
+            let buffer;
+            if (typeof fileContent === 'string') {
+                // It's a base64 string
+                buffer = Buffer.from(fileContent, 'base64');
+            } else if (fileContent instanceof Buffer) {
+                // It's already a Buffer
+                buffer = fileContent;
+            } else if (fileContent instanceof Uint8Array || fileContent instanceof ArrayBuffer) {
+                // It's some other binary format
+                buffer = Buffer.from(fileContent);
+            } else {
+                // Default case, try to convert to buffer as is
+                buffer = Buffer.from(fileContent);
+            }
+            
+            await fsPromises.writeFile(savePath, buffer);
+            
+            // Calculate relative path for the response
+            let relativePath;
+            if (app.isPackaged) {
+                // For packaged app
+                relativePath = path.relative(resourcesPath, savePath);
+            } else {
+                // For development
+                relativePath = path.relative(appPath, savePath);
+            }
+            
+            // Make sure path uses forward slashes for consistency
+            relativePath = `/${relativePath.replace(/\\/g, '/')}`;
+            
+            console.log(`File saved successfully: ${savePath}`);
+            console.log(`Relative path: ${relativePath}`);
+            
+            return { 
+                success: true, 
+                filePath: relativePath,
+                fullPath: savePath // Include full path for debugging
+            };
+        } catch (error) {
+            console.error(`Error saving file to ${savePath}:`, error);
+            return { 
+                success: false, 
+                message: `Error saving file: ${error.message}` 
+            };
+        }
     };
 
     ipcMain.handle('upload-file', async (event, { filePath, fileName }) => {
@@ -197,8 +244,7 @@ if (!gotTheLock) {
           console.error('Error uploading PPT:', error);
           return { success: false, message: error.message };
         }
-      });
-
+    });
 
     ipcMain.handle('get-paths', async () => {
         const resourcesPath = process.resourcesPath;
@@ -213,27 +259,27 @@ if (!gotTheLock) {
         };
     });
 
+    const saveBookFile = async (book, fileName, subdir) => {
+        const resourcesPath = process.resourcesPath;
+        const appPath = app.getAppPath();
+        let booksDir;
+        let bookPath;
+
+        if (!app.isPackaged) {
+            booksDir = path.join(appPath, 'src', 'data', subdir);
+            bookPath = path.join(booksDir, fileName);
+        } else {
+            booksDir = path.join(resourcesPath, 'data', subdir);
+            bookPath = path.join(booksDir, fileName);
+        }
+
+        await fs.promises.mkdir(booksDir, { recursive: true });
+        await fs.promises.writeFile(bookPath, JSON.stringify(book, null, 2));
+
+        return { success: true, message: 'Book saved successfully.' };
+    };
+
     ipcMain.handle('save-book', async (event, book, fileName) => {
-        const saveBookFile = async (book, fileName, subdir) => {
-            const resourcesPath = process.resourcesPath;
-            const appPath = app.getAppPath();
-            let booksDir;
-            let bookPath;
-
-            if (!app.isPackaged) {
-                booksDir = path.join(appPath, 'src', 'data', subdir);
-                bookPath = path.join(booksDir, fileName);
-            } else {
-                booksDir = path.join(resourcesPath, 'data', subdir);
-                bookPath = path.join(booksDir, fileName);
-            }
-
-            await fs.promises.mkdir(booksDir, { recursive: true });
-            await fs.promises.writeFile(bookPath, JSON.stringify(book, null, 2));
-
-            return { success: true, message: 'Book saved successfully.' };
-        };
-
         return saveBookFile(book, fileName, 'books');
     });
 
@@ -332,14 +378,6 @@ if (!gotTheLock) {
       }
     });
 
-    ipcMain.handle('resolve-path', (event, filePath) => {
-        if (app.isPackaged) {
-            return path.join(process.resourcesPath, filePath);
-        } else {
-            return path.join(app.getAppPath(), filePath);
-        }
-    });
-
     ipcMain.handle('is-packaged', () => app.isPackaged);
 
     ipcMain.handle('save-survey', async (event, survey, fileName) => {
@@ -372,7 +410,6 @@ if (!gotTheLock) {
             return { success: false, message: error.message };
         }
     });
-
 
     ipcMain.handle('get-survey', async (event, fileName) => {
         try {
@@ -470,26 +507,6 @@ if (!gotTheLock) {
     });
 
     ipcMain.handle('import-book', async (event, book) => {
-        const saveBookFile = async (book, fileName, subdir) => {
-            const resourcesPath = process.resourcesPath;
-            const appPath = app.getAppPath();
-            let booksDir;
-            let bookPath;
-
-            if (!app.isPackaged) {
-                booksDir = path.join(appPath, 'src', 'data', subdir);
-                bookPath = path.join(booksDir, fileName);
-            } else {
-                booksDir = path.join(resourcesPath, 'data', subdir);
-                bookPath = path.join(booksDir, fileName);
-            }
-
-            await fsPromises.mkdir(booksDir, { recursive: true });
-            await fsPromises.writeFile(bookPath, JSON.stringify(book, null, 2));
-
-            return { success: true, message: 'Book saved successfully.' };
-        };
-
         return saveBookFile(book, `${book.id}.json`, 'books');
     });
 
@@ -550,6 +567,270 @@ if (!gotTheLock) {
         } catch (error) {
             console.error('Failed to open TestViewer:', error);
             return { success: false, error: error.message };
+        }
+    });
+
+    ipcMain.handle('get-survey-files', async () => {
+        try {
+            const resourcesPath = process.resourcesPath;
+            const appPath = app.getAppPath();
+            let surveyDir;
+
+            if (!app.isPackaged) {
+                surveyDir = path.join(appPath, 'src', 'data', 'survey');
+            } else {
+                surveyDir = path.join(resourcesPath, 'data', 'survey');
+            }
+
+            // Check if directory exists
+            if (!fs.existsSync(surveyDir)) {
+                return { success: true, files: [] };
+            }
+
+            const surveyFiles = fs.readdirSync(surveyDir).filter(file => path.extname(file) === '.json');
+            return { success: true, files: surveyFiles };
+        } catch (error) {
+            console.error('Error getting survey files:', error);
+            return { success: false, message: error.message, files: [] };
+        }
+    });
+
+    ipcMain.handle('get-testmaker-survey-files', async () => {
+        try {
+            const currentDir = path.dirname(app.getPath('exe'));
+            const testMakerPath = path.join(currentDir, '..', 'TestMaker');
+            const surveyDir = path.join(testMakerPath, 'resources', 'data', 'survey');
+
+            console.log('Looking for TestMaker survey files in:', surveyDir);
+
+            // Check if directory exists
+            if (!fs.existsSync(surveyDir)) {
+                console.log('TestMaker survey directory does not exist:', surveyDir);
+                return { success: true, files: [], path: surveyDir };
+            }
+
+            const surveyFiles = fs.readdirSync(surveyDir).filter(file => 
+                path.extname(file) === '.json' && file.startsWith('survey_')
+            );
+            
+            console.log('Found survey files:', surveyFiles);
+            return { success: true, files: surveyFiles, path: surveyDir };
+        } catch (error) {
+            console.error('Error getting TestMaker survey files:', error);
+            return { success: false, message: error.message, files: [], path: null };
+        }
+    });
+
+    ipcMain.handle('get-testmaker-survey', async (event, fileName) => {
+        try {
+            const currentDir = path.dirname(app.getPath('exe'));
+            const testMakerPath = path.join(currentDir, '..', 'TestMaker');
+            const surveyPath = path.join(testMakerPath, 'resources', 'data', 'survey', fileName);
+
+            console.log('Reading TestMaker survey file:', surveyPath);
+
+            if (!fs.existsSync(surveyPath)) {
+                console.log('Survey file does not exist:', surveyPath);
+                return { success: false, message: 'Survey file not found' };
+            }
+
+            const data = await fs.promises.readFile(surveyPath, 'utf-8');
+            return { success: true, data: JSON.parse(data) };
+        } catch (error) {
+            console.error('Error reading TestMaker survey file:', error);
+            return { success: false, message: error.message };
+        }
+    });
+
+    ipcMain.handle('find-testmaker-survey-by-testid', async (event, testId) => {
+        try {
+            const currentDir = path.dirname(app.getPath('exe'));
+            const testMakerPath = path.join(currentDir, '..', 'TestMaker');
+            const surveyDir = path.join(testMakerPath, 'resources', 'data', 'survey');
+
+            console.log('Looking for survey with testId:', testId, 'in:', surveyDir);
+
+            if (!fs.existsSync(surveyDir)) {
+                return { success: false, message: 'TestMaker survey directory not found' };
+            }
+
+            const surveyFiles = fs.readdirSync(surveyDir).filter(file => 
+                path.extname(file) === '.json' && file.startsWith('survey_')
+            );
+
+            for (const fileName of surveyFiles) {
+                try {
+                    const filePath = path.join(surveyDir, fileName);
+                    const data = await fs.promises.readFile(filePath, 'utf-8');
+                    const surveyData = JSON.parse(data);
+                    
+                    if (surveyData.testId === testId) {
+                        console.log('Found matching survey file:', fileName);
+                        return { 
+                            success: true, 
+                            fileName: fileName,
+                            data: surveyData,
+                            filePath: filePath
+                        };
+                    }
+                } catch (error) {
+                    console.warn(`Failed to read survey file ${fileName}:`, error);
+                }
+            }
+
+            console.log('No matching survey file found for testId:', testId);
+            return { success: false, message: 'Survey file not found for testId' };
+        } catch (error) {
+            console.error('Error finding TestMaker survey by testId:', error);
+            return { success: false, message: error.message };
+        }
+    });
+
+    ipcMain.handle('read-file-from-storage', async (event, filePath) => {
+        try {
+            console.log(`📖 Reading file from storage: ${filePath}`);
+            
+            // Check if file exists
+            if (!fs.existsSync(filePath)) {
+                console.warn(`⚠️ File does not exist: ${filePath}`);
+                return null;
+            }
+
+            // Read file as buffer
+            const fileBuffer = await fs.promises.readFile(filePath);
+            console.log(`✅ Successfully read file: ${filePath} (${fileBuffer.length} bytes)`);
+            
+            return fileBuffer;
+        } catch (error) {
+            console.error(`❌ Error reading file from storage: ${filePath}`, error);
+            return null;
+        }
+    });
+
+    // Also add a helper to list files in storage directories (useful for debugging)
+    ipcMain.handle('list-storage-files', async (event, subdir) => {
+        try {
+            const resourcesPath = process.resourcesPath;
+            const appPath = app.getAppPath();
+            let storageDir;
+
+            if (!app.isPackaged) {
+                storageDir = path.join(appPath, 'src', 'data', subdir);
+            } else {
+                storageDir = path.join(resourcesPath, 'data', subdir);
+            }
+
+            console.log(`📁 Listing files in storage directory: ${storageDir}`);
+
+            if (!fs.existsSync(storageDir)) {
+                console.warn(`⚠️ Storage directory does not exist: ${storageDir}`);
+                return { success: true, files: [], directory: storageDir };
+            }
+
+            const files = fs.readdirSync(storageDir);
+            console.log(`✅ Found ${files.length} files in ${storageDir}`);
+            
+            return { 
+                success: true, 
+                files: files,
+                directory: storageDir 
+            };
+        } catch (error) {
+            console.error(`❌ Error listing storage files in ${subdir}:`, error);
+            return { 
+                success: false, 
+                message: error.message,
+                files: [],
+                directory: null 
+            };
+        }
+    });
+
+    // Add this IPC handler to your main.js file to better handle image path resolution
+
+    ipcMain.handle('resolve-image-path', async (event, imagePath) => {
+        try {
+            const resourcesPath = process.resourcesPath;
+            const appPath = app.getAppPath();
+            
+            // Clean the path
+            let cleanPath = imagePath;
+            if (cleanPath.startsWith('/')) {
+                cleanPath = cleanPath.substring(1);
+            }
+            
+            let resolvedPath;
+            if (!app.isPackaged) {
+                // Development mode
+                resolvedPath = path.join(appPath, 'src', cleanPath);
+            } else {
+                // Packaged mode
+                resolvedPath = path.join(resourcesPath, cleanPath);
+            }
+            
+            // Check if file exists
+            if (fs.existsSync(resolvedPath)) {
+                console.log(`✅ Image path resolved: ${imagePath} -> ${resolvedPath}`);
+                return {
+                    success: true,
+                    path: resolvedPath,
+                    exists: true
+                };
+            } else {
+                console.warn(`⚠️ Image file not found: ${resolvedPath}`);
+                return {
+                    success: false,
+                    path: resolvedPath,
+                    exists: false,
+                    message: 'Image file not found'
+                };
+            }
+            
+        } catch (error) {
+            console.error(`❌ Error resolving image path: ${imagePath}`, error);
+        return {
+            success: false,
+            path: null,
+            exists: false,
+            message: error.message
+        };
+    }
+    });
+
+    // Also update the existing resolve-path handler to be more robust
+    ipcMain.handle('resolve-path', (event, filePath) => {
+        try {
+            let resolvedPath;
+            
+            if (app.isPackaged) {
+                // For packaged app
+                if (filePath.startsWith('/')) {
+                    // Remove leading slash for proper path joining
+                    const cleanPath = filePath.substring(1);
+                    resolvedPath = path.join(process.resourcesPath, cleanPath);
+                } else {
+                    resolvedPath = path.join(process.resourcesPath, filePath);
+                }
+            } else {
+                // For development
+                if (filePath.startsWith('/src/')) {
+                    resolvedPath = path.join(app.getAppPath(), filePath.substring(1));
+                } else if (filePath.startsWith('/')) {
+                    resolvedPath = path.join(app.getAppPath(), 'src', filePath.substring(1));
+                } else {
+                    resolvedPath = path.join(app.getAppPath(), filePath);
+                }
+            }
+            
+            // Normalize the path
+            resolvedPath = path.normalize(resolvedPath);
+            
+            console.log(`🔍 Path resolution: ${filePath} -> ${resolvedPath}`);
+            return resolvedPath;
+            
+        } catch (error) {
+            console.error(`❌ Error in resolve-path: ${filePath}`, error);
+            return filePath; // Return original path as fallback
         }
     });
 }

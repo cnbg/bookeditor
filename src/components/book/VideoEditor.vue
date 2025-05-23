@@ -1,6 +1,8 @@
 <script setup>
 import { ref } from 'vue'
 import { useBookStore } from '../../stores/book'
+import CustomVideoPlayer from './CustomVideoPlayer.vue';
+
 const { electron } = window;
 const bookSt = useBookStore()
 const file = ref({})

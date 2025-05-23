@@ -3,7 +3,12 @@ import pkg from './package.json'
 
 export const builtins = ['electron', ...builtinModules.map((m) => [m, `node:${m}`]).flat(),]
 
-export const external = [...builtins, ...Object.keys(pkg.dependencies || {})]
+// Add electron-squirrel-startup to external dependencies
+export const external = [
+    ...builtins, 
+    ...Object.keys(pkg.dependencies || {}),
+    'electron-squirrel-startup' // Explicitly add this
+]
 
 /** @type {(env: import('vite').ConfigEnv<'build'>) => import('vite').UserConfig} */
 export const getBuildConfig = (env) => {

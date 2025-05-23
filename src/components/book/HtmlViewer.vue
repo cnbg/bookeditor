@@ -1,7 +1,7 @@
 <template>
   <div class="editor-container">
     <Button v-if="!editing" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
-    <div v-if="!editing" ref="htmlContent" class="ql-editor" :style="{ backgroundColor: backgroundColor }" v-html="html"></div>
+    <div v-if="!editing" ref="htmlContent" class="ql-editor" :style="{ backgroundColor: backgroundColor }" v-html="processedHtml"></div>
     <div v-else>
       <div class="flex justify-end mt-2 edit-controls">
         <Button @click="saveEdit" :label="$t('general.save')" icon="pi pi-save" class="mr-2" severity="success" />
@@ -13,7 +13,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue';
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue';
 import { useUserStore } from '../../stores/user';
 import { useI18n } from 'vue-i18n'
 
@@ -28,6 +28,52 @@ const originalContent = ref(props.html);
 let editorInstance = null;
 const containerBackgroundColor = ref('');
 const textBackgroundColor = ref('');
+const processedHtml = ref('');
+
+// Process HTML to fix image paths for display
+const processHtmlForDisplay = async (html) => {
+  if (!html) return '';
+  
+  const isPackaged = await window.electron.isPackaged();
+  
+  if (!isPackaged) {
+    return html;
+  }
+  
+  // Fix image paths for packaged app display
+  let processedContent = html;
+  const imgRegex = /src="([^"]*\/data\/images\/[^"]*)"/g;
+  let match;
+  const pathPromises = [];
+  
+  while ((match = imgRegex.exec(html)) !== null) {
+    const originalPath = match[1];
+    pathPromises.push(
+      window.electron.resolvePath(originalPath).then(resolvedPath => ({
+        original: originalPath,
+        resolved: `file:///${resolvedPath.replace(/\\/g, '/')}`
+      })).catch(error => {
+        console.warn('Could not resolve image path:', originalPath, error);
+        return null;
+      })
+    );
+  }
+  
+  const resolvedPaths = await Promise.all(pathPromises);
+  
+  resolvedPaths.forEach(pathMapping => {
+    if (pathMapping) {
+      processedContent = processedContent.replace(pathMapping.original, pathMapping.resolved);
+    }
+  });
+  
+  return processedContent;
+};
+
+// Update processed HTML when props change
+watch(() => props.html, async (newVal) => {
+  processedHtml.value = await processHtmlForDisplay(newVal);
+}, { immediate: true });
 
 watch(() => userSt.darkMode, (newVal) => {
   editorConfig.value = getEditorConfig(newVal);
@@ -45,49 +91,198 @@ function getEditorConfig(isDarkMode) {
     suffix: '.min',
     height: 'calc(100vh - 330px)',
     plugins: 'preview importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media codesample table charmap pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help quickbars emoticons',
-    automatic_uploads: false,
+    automatic_uploads: true,
     promotion: false,
-    file_picker_types: 'image media',
+    images_reuse_filename: true,
+    paste_data_images: true,
+    image_advtab: true,
+    image_uploadtab: false,
+    statusbar: false,
+    notify_no_image_upload_callback: false,
+    convert_urls: false,
+    relative_urls: false,
+    remove_script_host: false,
+    images_upload_handler: async (blobInfo, success, failure, progress) => {
+      try {
+        const blob = blobInfo.blob();
+        const fileExtension = blobInfo.filename().split('.').pop() || 'png';
+        const fileName = `image_${Date.now()}.${fileExtension}`;
+        const reader = new FileReader();        
+        
+        reader.onload = async function() {
+          try {
+            const base64Data = reader.result.split(',')[1];
+            const response = await window.electron.saveImportedFile({
+              fileContent: base64Data,
+              fileName: fileName
+            });            
+            
+            if (response.success) {
+              let filePath = response.filePath;
+              
+              // Fix path separators
+              if (filePath.includes('\\')) {
+                filePath = filePath.replace(/\\/g, '/');
+              }
+              
+              // Convert the path to a proper format for the built app
+              const isPackaged = await window.electron.isPackaged();
+              let finalPath;
+              
+              if (isPackaged) {
+                // For packaged app, we need to resolve the path properly
+                const resolvedPath = await window.electron.resolvePath(filePath);
+                // Convert to file:// URL for TinyMCE to display properly
+                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              } else {
+                // For development, use the relative path as-is
+                finalPath = filePath;
+              }
+              
+              console.log('Image saved successfully:', {
+                originalPath: filePath,
+                resolvedPath: finalPath,
+                isPackaged: isPackaged
+              });
+              
+              success(finalPath);
+              
+              // Replace blob URLs with the actual file path after a short delay
+              setTimeout(() => {
+                const editor = tinymce.get('editor');
+                if (editor) {
+                  let content = editor.getContent();
+                  const blobRegex = /src="(blob:[^"]+)"/g;
+                  if (blobRegex.test(content)) {
+                    content = content.replace(blobRegex, function(match, blobUrl) {
+                      if (blobUrl === blobInfo.blobUri()) {
+                        return `src="${finalPath}"`;
+                      }
+                      return match;
+                    });
+                    editor.setContent(content);
+                  }
+                }
+              }, 100);
+            } else {
+              console.error('Image upload failed:', response.message);
+              failure('Image upload failed: ' + response.message);
+            }
+          } catch (error) {
+            console.error('Image upload error:', error);
+            failure('Image upload error: ' + error.message);
+          }
+        };        
+        
+        reader.onerror = function() {
+          console.error('Could not read image file');
+          failure('Could not read image file');
+        };        
+        
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error in image handler:', error);
+        failure('Image upload failed: ' + error.message);
+      }
+    },
     file_picker_callback: (cb, value, meta) => {
-      const input = document.createElement('input');
-      input.setAttribute('type', 'file');
-      input.setAttribute('accept', meta.filetype === 'image' ? 'image/*' : 'video/*');
-      input.onchange = function () {
-        const file = this.files[0];
-        const reader = new FileReader();
-        reader.onload = function () {
-          const id = 'blobid' + (new Date()).getTime();
-          const blobCache = tinymce.activeEditor.editorUpload.blobCache;
-          const base64 = reader.result.split(',')[1];
-          const blobInfo = blobCache.create(id, file, base64);
-          blobCache.add(blobInfo);
-          cb(blobInfo.blobUri(), { title: file.name });
+      if (meta.filetype === 'image') {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'image/*');        
+        input.onchange = async function() {
+          const file = this.files[0];
+          try {
+            const response = await window.electron.uploadFile(file.path, file.name);
+            if (response.success) {
+              // Resolve path for packaged app
+              const isPackaged = await window.electron.isPackaged();
+              let finalPath = response.filePath;
+              
+              if (isPackaged) {
+                const resolvedPath = await window.electron.resolvePath(finalPath);
+                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              }
+              
+              cb(finalPath, { title: file.name });
+            } else {
+              console.error('Error uploading file:', response.message);
+            }
+          } catch (error) {
+            console.error('Error uploading file:', error);
+          }
+        };        
+        input.click();
+      } else if (meta.filetype === 'media') {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', 'video/*');
+        
+        input.onchange = async function() {
+          const file = this.files[0];
+          try {
+            const response = await window.electron.uploadVideo(file.path, file.name);
+            if (response.success) {
+              // Resolve path for packaged app
+              const isPackaged = await window.electron.isPackaged();
+              let finalPath = response.filePath;
+              
+              if (isPackaged) {
+                const resolvedPath = await window.electron.resolvePath(finalPath);
+                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              }
+              
+              cb(finalPath, { title: file.name });
+            } else {
+              console.error('Error uploading video:', response.message);
+            }
+          } catch (error) {
+            console.error('Error uploading video:', error);
+          }
         };
-        reader.readAsDataURL(file);
-      };
-      input.click();
+        
+        input.click();
+      }
     },
     extended_valid_elements: '*[.*]',
     draggable_modal: true,
     skin: isDarkMode ? 'oxide-dark' : 'oxide',
     content_css: isDarkMode ? 'dark' : 'default',
-    statusbar: false,
     language: 'ru',
+    init_instance_callback: function(editor) {
+      editor.notificationManager.open = function() { 
+        return { 
+          close: function() {},
+          progressBar: { value: function() {} },
+          reposition: function() {},
+          getEl: function() { return document.createElement('div'); },
+          moveTo: function() {},
+          moveRel: function() {},
+          text: function() {},
+          settings: {}
+        };
+      };
+    },
     toolbar: 'undo redo | styles | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
     setup: (editor) => {
       editorInstance = editor;
-      editor.on('init', () => {
+      editor.on('init', async () => {
         import('../../tinymce/langs/ru').catch((error) => {
           console.error('Failed to load translation file:', error);
         });
         if (editing.value) {
-          editor.setContent(editedContent.value);
+          // Process content for editor
+          let contentForEditor = editedContent.value;
+          const isPackaged = await window.electron.isPackaged();
+          if (isPackaged) {
+            contentForEditor = await fixImagePathsForEditor(contentForEditor);
+          }
+          editor.setContent(contentForEditor);
         }
       });
       editor.on('change', () => {
         editedContent.value = editor.getContent();
       });
-
       editor.on('ExecCommand', (e) => {
         if (e.command === 'mceApplyTextcolor' && e.value) {
           textBackgroundColor.value = e.value;
@@ -95,7 +290,6 @@ function getEditorConfig(isDarkMode) {
           containerBackgroundColor.value = e.value;
         }
       });
-
       editor.on('SelectionChange', () => {
         const selectedText = editor.selection.getContent({ format: 'text' }).trim();
         if (selectedText === '') {
@@ -106,10 +300,34 @@ function getEditorConfig(isDarkMode) {
   };
 }
 
-const startEdit = () => {
+// Helper function to fix image paths for TinyMCE editor
+async function fixImagePathsForEditor(content) {
+  const isPackaged = await window.electron.isPackaged();
+  if (!isPackaged) return content;
+  
+  // Find all image src attributes
+  const imgRegex = /src="([^"]*\/data\/images\/[^"]*)"/g;
+  let match;
+  let updatedContent = content;
+  
+  while ((match = imgRegex.exec(content)) !== null) {
+    const originalPath = match[1];
+    try {
+      const resolvedPath = await window.electron.resolvePath(originalPath);
+      const finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+      updatedContent = updatedContent.replace(originalPath, finalPath);
+    } catch (error) {
+      console.warn('Could not resolve image path:', originalPath, error);
+    }
+  }
+  
+  return updatedContent;
+}
+
+const startEdit = async () => {
   editing.value = true;
   editedContent.value = props.html;
-  initTinyMCE();
+  await initTinyMCE();
 };
 
 const cancelEdit = () => {
@@ -119,18 +337,13 @@ const cancelEdit = () => {
 };
 
 const saveEdit = () => {
-  // console.log(editedContent.value);
-
   if (editedContent.value.trim() === '') {
     originalContent.value = '';
     editing.value = false;
   } else {
     const parser = new DOMParser();
     const doc = parser.parseFromString(editedContent.value, 'text/html');
-  console.log(doc);
-
     const borderColor = userSt.darkMode ? '#888888' : '#BEBEBE';
-
     const tables = doc.querySelectorAll('table');
     tables.forEach(table => {
       table.style.borderColor = borderColor;
@@ -164,8 +377,6 @@ const saveEdit = () => {
   destroyTinyMCE();
 };
 
-
-
 async function initTinyMCE() {
   const baseUrl = await getTinyMCEBaseUrl();
   setTimeout(() => {
@@ -189,11 +400,14 @@ onMounted(async () => {
     let parsedContent;
     try {
       parsedContent = JSON.parse(props.html);
-
     } catch (error) {
       editedContent.value = props.html;
     }
   }
+  
+  // Process HTML for initial display
+  processedHtml.value = await processHtmlForDisplay(props.html);
+  
   const baseUrl = await getTinyMCEBaseUrl();
   tinymce.init({
     ...editorConfig.value,

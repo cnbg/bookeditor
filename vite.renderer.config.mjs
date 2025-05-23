@@ -16,6 +16,7 @@ export default defineConfig((env) => {
         build: {
             outDir: `.vite/renderer/${name}`,
             target: 'esnext',
+            chunkSizeWarningLimit: 10000
         },
         plugins: [
             pluginExposeRenderer(name),

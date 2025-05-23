@@ -2,31 +2,30 @@
   <div>
     <div v-if="!editing" class="video-container" @mouseover="showEdit" @mouseleave="hideEdit">
       <Fieldset>
-      <video-player
-        v-if="resolvedVideoPath || file.path || defaultVideoPath"
-        class="video-player vjs-big-play-centered"
-        :src="resolvedVideoPath || file.path || defaultVideoPath"
-        poster=""
-        crossorigin="anonymous"
-        playsinline
-        controls
-        :volume="0.6"
-        :height="320"
-        :playback-rates="[0.7, 1.0, 1.5, 2.0]"
-        @mounted="handleMounted"
-        @ready="handleEvent($event)"
-        @play="handleEvent($event)"
-        @pause="handleEvent($event)"
-        @ended="handleEvent($event)"
-        @loadeddata="handleEvent($event)"
-        @waiting="handleEvent($event)"
-        @playing="handleEvent($event)"
-        @canplay="handleEvent($event)"
-        @canplaythrough="handleEvent($event)"
-        @timeupdate="handleEvent(player?.currentTime())"
-      />
-    </Fieldset>
-    <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
+        <CustomVideoPlayer
+          v-if="resolvedVideoPath || file.path || defaultVideoPath"
+          :src="resolvedVideoPath || file.path || defaultVideoPath"
+          :poster="''"
+          crossorigin="anonymous"
+          :playsinline="true"
+          :controls="true"
+          :volume="0.6"
+          :height="320"
+          :playback-rates="[0.7, 1.0, 1.5, 2.0]"
+          @mounted="handleMounted"
+          @ready="handleEvent($event)"
+          @play="handleEvent($event)"
+          @pause="handleEvent($event)"
+          @ended="handleEvent($event)"
+          @loadeddata="handleEvent($event)"
+          @waiting="handleEvent($event)"
+          @playing="handleEvent($event)"
+          @canplay="handleEvent($event)"
+          @canplaythrough="handleEvent($event)"
+          @timeupdate="handleEvent($event)"
+        />
+      </Fieldset>
+      <Button v-if="isHovered" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
     </div>
     <div v-else class="video-container">
       <div class="flex justify-end gap-2 edit-controls">
@@ -44,40 +43,39 @@
         <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger" severity="secondary" />
       </div>
       <Fieldset>
-      <video-player
-        v-if="resolvedVideoPath || file.path || defaultVideoPath"
-        class="video-player vjs-big-play-centered"
-        :src="resolvedVideoPath || file.path || defaultVideoPath"
-        poster=""
-        crossorigin="anonymous"
-        playsinline
-        controls
-        :volume="0.6"
-        :height="320"
-        :playback-rates="[0.7, 1.0, 1.5, 2.0]"
-        @mounted="handleMounted"
-        @ready="handleEvent($event)"
-        @play="handleEvent($event)"
-        @pause="handleEvent($event)"
-        @ended="handleEvent($event)"
-        @loadeddata="handleEvent($event)"
-        @waiting="handleEvent($event)"
-        @playing="handleEvent($event)"
-        @canplay="handleEvent($event)"
-        @canplaythrough="handleEvent($event)"
-        @timeupdate="handleEvent(player?.currentTime())"
-      />
-    </Fieldset>
+        <CustomVideoPlayer
+          v-if="resolvedVideoPath || file.path || defaultVideoPath"
+          :src="resolvedVideoPath || file.path || defaultVideoPath"
+          :poster="''"
+          crossorigin="anonymous"
+          :playsinline="true"
+          :controls="true"
+          :volume="0.6"
+          :height="320"
+          :playback-rates="[0.7, 1.0, 1.5, 2.0]"
+          @mounted="handleMounted"
+          @ready="handleEvent($event)"
+          @play="handleEvent($event)"
+          @pause="handleEvent($event)"
+          @ended="handleEvent($event)"
+          @loadeddata="handleEvent($event)"
+          @waiting="handleEvent($event)"
+          @playing="handleEvent($event)"
+          @canplay="handleEvent($event)"
+          @canplaythrough="handleEvent($event)"
+          @timeupdate="handleEvent($event)"
+        />
+      </Fieldset>
     </div>
   </div>
 </template>
 
 <script setup>
 import { defineProps, ref, defineEmits, onMounted, watch } from 'vue';
-import { VideoPlayer } from '@videojs-player/vue';
 import videojs from 'video.js';
 import 'video.js/dist/video-js.css';
 import { useI18n } from 'vue-i18n'
+import CustomVideoPlayer from './CustomVideoPlayer.vue';
 
 const { t } = useI18n()
 const props = defineProps({

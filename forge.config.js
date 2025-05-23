@@ -7,8 +7,8 @@ module.exports = {
   packagerConfig: {
     asar: true,
     "extraResource": [
+      "./src/data",
       "./src/tinymce",
-      "./src/data"
     ],
     icon: 'src/data/icon.png'
   },
@@ -17,9 +17,7 @@ module.exports = {
     {
       name: '@electron-forge/maker-squirrel',
       config: {
-        "setupIcon": "./src/data/icon.ico",
-        "authors": "BookEditor",
-        "description": "BookEditor",
+        "setupIcon": "./src/data/icon.ico"
       },
     },
     {

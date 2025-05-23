@@ -5,7 +5,6 @@ import { useRouter } from 'vue-router'
 import { useUserStore } from '../../stores/user'
 import { useBookStore } from '../../stores/book'
 import { v4 as uuidv4 } from 'uuid';
-import Panel from 'primevue/panel';
 const { electron } = window;
 
 const props = defineProps({
@@ -38,7 +37,6 @@ const generateFileName = (title) => {
   return `${sanitizedTitle}_${randomNumber}.json`;
 };
 
-
 const save = async () => {
     try {
         if (book.title) {
@@ -68,15 +66,23 @@ const save = async () => {
     }
 };
 
-const customBase64Uploader = async (event) => {
-  const file = event.files[0]
-  const reader = new FileReader()
-  let blob = await fetch(file.objectURL).then((r) => r.blob())
+const coverUpload = async (event) => {
+  const file = event.files[0];
+  const filePath = file.path;
+  const fileName = file.name;
 
-  reader.readAsDataURL(blob)
-
-  reader.onloadend = function() {
-    book.cover = reader.result
+  try {
+    // Use the Electron API to upload the image file to the images directory
+    const response = await electron.uploadFile(filePath, fileName);
+    if (response.success) {
+      // Store the file path in book.cover
+      book.cover = response.filePath;
+      console.log('Cover image uploaded successfully:', response.filePath);
+    } else {
+      console.error('Error uploading cover image:', response.message);
+    }
+  } catch (error) {
+    console.error('Error uploading cover image:', error);
   }
 }
 </script>
@@ -84,37 +90,31 @@ const customBase64Uploader = async (event) => {
 <template>
   <TopMenu class="p-2" />
   <Fieldset :legend="$t('general.add-book')">
-  <div class="p-6 flex flex-col gap-5">
-    <div>
-      <label for="book-title">{{ $t('general.enter-title').concat('...') }}</label>
-      <InputText id="book-title" v-model="book.title" class="text-2xl w-full" />
-      <span v-show="!book.title" class="lowercase text-red-700">{{ $t('general.enter-book-title') }}</span>
+    <div class="p-6 flex flex-col gap-5">
+      <div>
+        <label for="book-title">{{ $t('general.enter-title').concat('...') }}</label>
+        <InputText id="book-title" v-model="book.title" class="text-2xl w-full" />
+        <span v-show="!book.title" class="lowercase text-red-700">{{ $t('general.enter-book-title') }}</span>
+      </div>
+      <div>
+        <label for="book-desc">{{ $t('general.enter-description') }}</label>
+        <Textarea v-model="book.desc" id="book-desc" class="w-full h-32" placeholder="..." />
+      </div>
+      <div>
+        <label for="book-tags" class="mt-3 mb-1">{{ $t('general.tags') }}</label>
+        <Chips v-model="book.tags" id="book-tags" />
+      </div>
+      <div class="flex flex-wrap justify-between gap-5">
+        <FileUpload mode="basic" name="cover" accept="image/*" :maxFileSize="90000000" auto customUpload 
+          @uploader="coverUpload" :chooseLabel="$t('general.select-cover')" />
+        <Button @click="save" icon="pi pi-save"
+          class="sm:w-56 ml-auto" size="large" :label="$t('general.save')" severity="success" outlined />
+      </div>
+      <div v-if="book.cover" class=" p-5">
+        <img :src="book.cover" class="h-96 w-full object-contain" />
+      </div>
     </div>
-    <!-- <div>
-      <label for="book-desc">{{ $t('general.enter-description') }}</label>
-      <Textarea v-model="book.desc" id="book-desc" class="w-full h-32" placeholder="..." />
-    </div> -->
-    <div>
-      <label for="book-tags" class="mt-3 mb-1">{{ $t('general.tags') }}</label>
-      <Chips v-model="book.tags" id="book-tags" />
-    </div>
-
-    <div class="flex flex-wrap justify-between gap-5">
-      <FileUpload mode="basic" name="cover" accept="image/*" :maxFileSize="90000000"
-                  auto customUpload @uploader="customBase64Uploader"
-                  :chooseLabel="$t('general.select-cover')" />
-
-      <Button @click="save" icon="pi pi-save"
-              class="sm:w-56 ml-auto" size="large"
-              :label="$t('general.save')" severity="success" outlined />
-    </div>
-
-    <div v-if="book.cover" class=" p-5">
-      <img :src="book.cover" class="h-96 w-full object-contain" />
-    </div>
-
-  </div>
-</Fieldset>
+  </Fieldset>
 </template>
 
 <style scoped>

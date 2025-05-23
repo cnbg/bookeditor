@@ -62,45 +62,203 @@ function getEditorConfig(isDarkMode) {
     license_key: 'gpl',
     height: 'calc(100vh - 330px)',
     plugins: 'preview importcss searchreplace autolink autosave save directionality code visualblocks visualchars fullscreen image link media codesample table charmap pagebreak nonbreaking anchor insertdatetime advlist lists wordcount help quickbars emoticons',
-    automatic_uploads: false,
+    convert_urls: false,
+    relative_urls: false,
+    remove_script_host: false,    
+    automatic_uploads: true,
     promotion: false,
-    file_picker_types: 'image media',
-    file_picker_types: 'image media',
-    file_picker_callback: (cb, value, meta) => {
-      const input = document.createElement('input');
-      input.setAttribute('type', 'file');
-      input.setAttribute('accept', meta.filetype === 'image' ? 'image/*' : '*/*');
-      input.onchange = function () {
-        const file = this.files[0];
-        const reader = new FileReader();
-        reader.onload = function () {
-          const id = 'blobid' + (new Date()).getTime();
-          const blobCache = tinymce.activeEditor.editorUpload.blobCache;
-          const base64 = reader.result.split(',')[1];
-          const blobInfo = blobCache.create(id, file, base64);
-          blobCache.add(blobInfo);
-          cb(blobInfo.blobUri(), { title: file.name });
-        };
-        reader.readAsDataURL(file);
-      };
-      input.click();
+    images_reuse_filename: true,
+    paste_data_images: true,
+    image_advtab: true,
+    image_uploadtab: false,
+    statusbar: false,    
+    images_upload_handler: async (blobInfo, success, failure, progress) => {
+      try {
+        const blob = blobInfo.blob();
+        const fileExtension = blobInfo.filename().split('.').pop() || 'png';
+        const fileName = `image_${Date.now()}.${fileExtension}`;
+        const reader = new FileReader();        
+        
+        reader.onload = async function() {
+          try {
+            const base64Data = reader.result.split(',')[1];
+            const response = await window.electron.saveImportedFile({
+              fileContent: base64Data,
+              fileName: fileName
+            });            
+            
+            if (response.success) {
+              let filePath = response.filePath;
+              
+              // Fix path separators
+              if (filePath.includes('\\')) {
+                filePath = filePath.replace(/\\/g, '/');
+              }
+              
+              // Convert the path to a proper format for the built app
+              const isPackaged = await window.electron.isPackaged();
+              let finalPath;
+              
+              if (isPackaged) {
+                // For packaged app, we need to resolve the path properly
+                const resolvedPath = await window.electron.resolvePath(filePath);
+                // Convert to file:// URL for TinyMCE to display properly
+                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              } else {
+                // For development, use the relative path as-is
+                finalPath = filePath;
+              }
+              
+              console.log('Image saved successfully:', {
+                originalPath: filePath,
+                resolvedPath: finalPath,
+                isPackaged: isPackaged
+              });
+              
+              success(finalPath);
+              
+              // Replace blob URLs with the actual file path after a short delay
+              setTimeout(() => {
+                const editor = tinymce.get('editor');
+                if (editor) {
+                  let content = editor.getContent();
+                  const blobRegex = /src="(blob:[^"]+)"/g;
+                  if (blobRegex.test(content)) {
+                    content = content.replace(blobRegex, function(match, blobUrl) {
+                      if (blobUrl === blobInfo.blobUri()) {
+                        return `src="${finalPath}"`;
+                      }
+                      return match;
+                    });
+                    editor.setContent(content);
+                  }
+                }
+              }, 100);
+            } else {
+              console.error('Image upload failed:', response.message);
+              failure('Image upload failed: ' + response.message);
+            }
+          } catch (error) {
+            console.error('Image upload error:', error);
+            failure('Image upload error: ' + error.message);
+          }
+        };        
+        
+        reader.onerror = function() {
+          console.error('Could not read image file');
+          failure('Could not read image file');
+        };        
+        
+        reader.readAsDataURL(blob);
+      } catch (error) {
+        console.error('Error in image handler:', error);
+        failure('Image upload failed: ' + error.message);
+      }
     },
+    file_picker_callback: (cb, value, meta) => {
+      if (meta.filetype !== 'image') {
+        const input = document.createElement('input');
+        input.setAttribute('type', 'file');
+        input.setAttribute('accept', meta.filetype === 'media' ? 'video/*' : '*/*');
+        
+        input.onchange = async function() {
+          const file = this.files[0];
+          try {
+            let response;
+            if (meta.filetype === 'media') {
+              response = await window.electron.uploadVideo(file.path, file.name);
+            } else {
+              return;
+            }            
+            if (response.success) {
+              // Resolve path for packaged app
+              const isPackaged = await window.electron.isPackaged();
+              let finalPath = response.filePath;
+              
+              if (isPackaged) {
+                const resolvedPath = await window.electron.resolvePath(finalPath);
+                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              }
+              
+              cb(finalPath, { title: file.name });
+            } else {
+              console.error('Error uploading file:', response.message);
+            }
+          } catch (error) {
+            console.error('Error uploading file:', error);
+          }
+        };        
+        input.click();
+      }
+    },    
     extended_valid_elements: '*[.*]',
     draggable_modal: true,
     skin: isDarkMode ? 'oxide-dark' : 'oxide',
     content_css: isDarkMode ? 'dark' : 'default',
-    statusbar: false,
     language: 'ru',
-    toolbar: 'undo redo | styles | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',
+    notify_no_image_upload_callback: false,
+    remove_trailing_brs: true,
+    init_instance_callback: function(editor) {
+      editor.notificationManager.open = function() { 
+        return { 
+          close: function() {},
+          progressBar: { value: function() {} },
+          reposition: function() {},
+          getEl: function() { return document.createElement('div'); },
+          moveTo: function() {},
+          moveRel: function() {},
+          text: function() {},
+          settings: {}
+        };
+      };
+    },
+    toolbar: 'undo redo | styles | bold italic | alignleft aligncenter alignright alignjustify | bullist numlist outdent indent | link image',    
     setup: (editor) => {
-      editor.on('init', () => {
-        editor.setContent(props.html);
+      editor.on('init', async () => {
+        // Process existing content to fix image paths
+        let initialContent = props.html;
+        if (initialContent) {
+          const isPackaged = await window.electron.isPackaged();
+          if (isPackaged) {
+            // Fix existing image paths in the content
+            initialContent = await fixImagePathsInContent(initialContent);
+          }
+          editor.setContent(initialContent);
+        }
+        
         import('../../tinymce/langs/ru').catch((error) => {
           console.error('Failed to load translation file:', error);
         });
+      });      
+      editor.on('change', () => {
+        content.value = editor.getContent();
       });
-    },
+    }
   };
+}
+
+// Helper function to fix image paths in existing content
+async function fixImagePathsInContent(content) {
+  const isPackaged = await window.electron.isPackaged();
+  if (!isPackaged) return content;
+  
+  // Find all image src attributes
+  const imgRegex = /src="([^"]*\/data\/images\/[^"]*)"/g;
+  let match;
+  let updatedContent = content;
+  
+  while ((match = imgRegex.exec(content)) !== null) {
+    const originalPath = match[1];
+    try {
+      const resolvedPath = await window.electron.resolvePath(originalPath);
+      const finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+      updatedContent = updatedContent.replace(originalPath, finalPath);
+    } catch (error) {
+      console.warn('Could not resolve image path:', originalPath, error);
+    }
+  }
+  
+  return updatedContent;
 }
 
 onMounted(async () => {

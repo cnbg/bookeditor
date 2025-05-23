@@ -15,6 +15,9 @@ contextBridge.exposeInMainWorld('electron', {
   resolvePath: (filePath) => {
     return ipcRenderer.invoke('resolve-path', filePath);
   },
+  resolveImagePath: (imagePath) => {
+    return ipcRenderer.invoke('resolve-image-path', imagePath);
+  },
   openPptFile: (filePath) => {
     return ipcRenderer.invoke('open-ppt-file', filePath);
   },
@@ -25,4 +28,12 @@ contextBridge.exposeInMainWorld('electron', {
   importSurveyFile: () => ipcRenderer.invoke('import-survey-file'),
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   openTestViewer: (testId) => ipcRenderer.invoke('open-test-viewer', testId),
+  getSurveyFiles: () => ipcRenderer.invoke('get-survey-files'),
+  getTestMakerSurveyFiles: () => ipcRenderer.invoke('get-testmaker-survey-files'),
+  getTestMakerSurvey: (fileName) => ipcRenderer.invoke('get-testmaker-survey', fileName),
+  findTestMakerSurveyByTestId: (testId) => ipcRenderer.invoke('find-testmaker-survey-by-testid', testId),
+  
+  // Storage functions
+  readFileFromStorage: (filePath) => ipcRenderer.invoke('read-file-from-storage', filePath),
+  listStorageFiles: (subdir) => ipcRenderer.invoke('list-storage-files', subdir),
 });
