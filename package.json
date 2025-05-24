@@ -1,7 +1,7 @@
 {
   "name": "bookeditor",
   "productName": "BookEditor",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Book editor/viewer application",
   "keywords": [
     "book reader",

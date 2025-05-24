@@ -1,56 +1,5 @@
-<template>
-  <div>
-    <Button v-if="!editing && images.length > 0" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
-    <div v-if="!editing" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      <div v-for="(image, index) in images" :key="index" class="image-container" @mouseover="showEdit(index)" @mouseleave="hideEdit(index)">
-        <img :src="image.src" @click="imageClick(index)" alt="" class="object-cover aspect-video" />
-        <Button v-if="hoveredIndex === index" @click="startEditForImage(index)" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
-      </div>
-    </div>
-    <div v-else>
-      <div>
-        <div class="flex justify-end gap-2">
-          <FileUpload mode="basic" name="cover" accept="image/*" :maxFileSize="5000000"
-                      customUpload @uploader="fileUploader($event, images[editingIndex])" auto
-                      :chooseLabel="$t('general.select-file')" />
-          <Button @click="deleteImage(editingIndex)" icon="pi pi-trash" severity="danger" />
-          <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />
-          <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger" severity="secondary" />
-        </div>
-        <div>
-          <label for="title">{{ $t('general.enter-title') }}</label>
-          <InputText v-model="images[editingIndex].title" id="title" class="w-full" />
-        </div>
-        <div>
-          <label for="description">{{ $t('general.enter-description') }}</label>
-          <Textarea v-model="images[editingIndex].alt" id="description" class="w-full h-15" />
-        </div>
-        <div v-if="images[editingIndex].src" class="p-5">
-          <img :src="images[editingIndex].src" class="h-56 w-full object-contain" />
-        </div>
-      </div>
-    </div>
-    <Galleria v-if="!editing" :value="images" v-model:activeIndex="activeIndex" v-model:visible="displayGallery"
-              :fullScreen="true" :showItemNavigators="images.length > 1" :showItemNavigatorsOnHover="images.length > 1"
-              :showThumbnails="images.length > 1" :numVisible="4" :circular="images.length > 1" containerStyle="width 100%">
-      <template #item="slotProps">
-        <img :src="slotProps.item.src" alt="" class="object-contain aspect-video" style="width: calc(80vw); height: calc(65vh)" />
-      </template>
-      <template #thumbnail="slotProps">
-        <img :src="slotProps.item.thumb" alt="" class="max-h-14 md:max-h-24 object-cover px-2 aspect-video" />
-      </template>
-      <template #caption="slotProps">
-        <div v-if="slotProps.item.title">
-          <div class="mb-1 font-bold">{{ slotProps.item.title }}</div>
-          <p class="text-sm m-0">{{ slotProps.item.alt }}</p>
-        </div>
-      </template>
-    </Galleria>
-  </div>
-</template>
-
 <script setup>
-import { defineProps, defineEmits, ref, watch } from 'vue';
+import { defineProps, defineEmits, ref, watch, computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -68,9 +17,109 @@ const displayGallery = ref(false);
 const editing = ref(false);
 const editingIndex = ref(null);
 const hoveredIndex = ref(null);
-
 const originalImage = ref({});
+const isPackaged = ref(false);
+const resolvedImagePaths = ref(new Map());
 
+// Helper function to modify path (similar to PptViewer)
+const modifyPath = async (path) => {
+  if (!path) return '';
+  try {
+    const isPackaged = await window.electron.isPackaged();
+    if (isPackaged) {
+      // Remove 'src' from the beginning of the path for packaged app
+      return path.replace(/^\/src\//, '/');
+    }
+    return path;
+  } catch (error) {
+    console.error('Error checking package status:', error);
+    return path;
+  }
+};
+
+// Helper function to resolve file path (similar to PptViewer)
+const resolveFilePath = async (filePath) => {
+  if (!filePath) return '';
+  
+  try {
+    const modifiedPath = await modifyPath(filePath);
+    const isPackaged = await window.electron.isPackaged();
+    
+    if (!isPackaged) {
+      // Development mode - ensure path starts with /src
+      if (modifiedPath.startsWith('/data/')) {
+        return `/src${modifiedPath}`;
+      }
+      return modifiedPath;
+    } else {
+      // Packaged mode - resolve to file:// URL
+      const resolvedPath = await window.electron.resolvePath(modifiedPath);
+      return `file:///${resolvedPath.replace(/\\/g, '/')}`;
+    }
+  } catch (error) {
+    console.error('Error resolving path:', error);
+    return filePath;
+  }
+};
+
+// Computed property to process images with resolved paths
+const processedImages = computed(() => {
+  if (!props.images || props.images.length === 0) return [];
+  
+  return props.images.map((image, index) => {
+    const cacheKey = `${index}-${image.src}`;
+    const resolvedSrc = resolvedImagePaths.value.get(`${cacheKey}-src`) || image.src;
+    const resolvedThumb = resolvedImagePaths.value.get(`${cacheKey}-thumb`) || image.thumb || image.src;
+    
+    return {
+      ...image,
+      displaySrc: resolvedSrc,
+      displayThumb: resolvedThumb
+    };
+  });
+});
+
+// Function to resolve and cache image paths
+const resolveImagePaths = async () => {
+  if (!props.images || props.images.length === 0) return;
+  
+  for (let i = 0; i < props.images.length; i++) {
+    const image = props.images[i];
+    const cacheKey = `${i}-${image.src}`;
+    
+    if (image.src && !resolvedImagePaths.value.has(`${cacheKey}-src`)) {
+      try {
+        const resolvedSrc = await resolveFilePath(image.src);
+        const resolvedThumb = await resolveFilePath(image.thumb || image.src);
+        
+        resolvedImagePaths.value.set(`${cacheKey}-src`, resolvedSrc);
+        resolvedImagePaths.value.set(`${cacheKey}-thumb`, resolvedThumb);
+        
+        console.log(`Resolved image paths for index ${i}:`, {
+          original: image.src,
+          resolved: resolvedSrc,
+          thumb: resolvedThumb
+        });
+      } catch (error) {
+        console.error(`Error resolving image path for index ${i}:`, error);
+      }
+    }
+  }
+};
+
+// Initialize path resolution on mount
+onMounted(async () => {
+  const packaged = await window.electron.isPackaged();
+  isPackaged.value = packaged;
+  await resolveImagePaths();
+});
+
+// Watch for changes in images prop
+watch(() => props.images, async () => {
+  await resolveImagePaths();
+}, { deep: true });
+
+// Rest of your component methods remain the same...
 const imageClick = (index) => {
   activeIndex.value = index;
   displayGallery.value = true;
@@ -118,10 +167,39 @@ const fileUploader = async (event, image) => {
   const fileName = file.name;
 
   try {
-    const response = await electron.uploadFile(filePath, fileName);
+    const response = await window.electron.uploadFile(filePath, fileName);
     if (response.success) {
-      image.src = response.filePath;
-      image.thumb = response.filePath;
+      let finalPath = response.filePath;
+      
+      // Fix path separators
+      if (finalPath.includes('\\')) {
+        finalPath = finalPath.replace(/\\/g, '/');
+      }
+      
+      // Store the path and resolve display path
+      const packaged = await window.electron.isPackaged();
+      if (packaged) {
+        // Store as relative path for consistency
+        if (!finalPath.startsWith('/data')) {
+          finalPath = finalPath.replace(/.*\/data/, '/data');
+        }
+      }
+      
+      // Update the image object
+      image.src = finalPath;
+      image.thumb = finalPath;
+      
+      // Resolve and cache the display path
+      const resolvedSrc = await resolveFilePath(finalPath);
+      const cacheKey = `${editingIndex.value}-${finalPath}`;
+      resolvedImagePaths.value.set(`${cacheKey}-src`, resolvedSrc);
+      resolvedImagePaths.value.set(`${cacheKey}-thumb`, resolvedSrc);
+      
+      console.log('Image uploaded and resolved:', {
+        stored: finalPath,
+        resolved: resolvedSrc,
+        isPackaged: packaged
+      });
     } else {
       console.error('Error uploading file:', response.message);
     }
@@ -139,11 +217,61 @@ const hideEdit = (index) => {
 };
 </script>
 
+<template>
+  <div>
+    <Button v-if="!editing && images.length > 0" @click="startEdit" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
+    <div v-if="!editing" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+      <div v-for="(image, index) in processedImages" :key="index" class="image-container" @mouseover="showEdit(index)" @mouseleave="hideEdit(index)">
+        <img :src="image.displaySrc" @click="imageClick(index)" alt="" class="object-cover aspect-video" />
+        <Button v-if="hoveredIndex === index" @click="startEditForImage(index)" icon="pi pi-pencil" :label="$t('general.edit')" class="edit-button" />
+      </div>
+    </div>
+    <div v-else>
+      <div>
+        <div class="flex justify-end gap-2">
+          <FileUpload mode="basic" name="cover" accept="image/*" :maxFileSize="5000000"
+                      customUpload @uploader="fileUploader($event, images[editingIndex])" auto
+                      :chooseLabel="$t('general.select-file')" />
+          <Button @click="deleteImage(editingIndex)" icon="pi pi-trash" severity="danger" />
+          <Button @click="saveEdit" icon="pi pi-save" :label="$t('general.save')" severity="success" />
+          <Button @click="cancelEdit" icon="pi pi-times" :label="$t('general.cancel')" class="p-button-danger" severity="secondary" />
+        </div>
+        <div>
+          <label for="title">{{ $t('general.enter-title') }}</label>
+          <InputText v-model="images[editingIndex].title" id="title" class="w-full" />
+        </div>
+        <div>
+          <label for="description">{{ $t('general.enter-description') }}</label>
+          <Textarea v-model="images[editingIndex].alt" id="description" class="w-full h-15" />
+        </div>
+        <div v-if="processedImages[editingIndex]?.displaySrc" class="p-5">
+          <img :src="processedImages[editingIndex].displaySrc" class="h-56 w-full object-contain" />
+        </div>
+      </div>
+    </div>
+    <Galleria v-if="!editing" :value="processedImages" v-model:activeIndex="activeIndex" v-model:visible="displayGallery"
+              :fullScreen="true" :showItemNavigators="processedImages.length > 1" :showItemNavigatorsOnHover="processedImages.length > 1"
+              :showThumbnails="processedImages.length > 1" :numVisible="4" :circular="processedImages.length > 1" containerStyle="width 100%">
+      <template #item="slotProps">
+        <img :src="slotProps.item.displaySrc" alt="" class="object-contain aspect-video" style="width: calc(80vw); height: calc(65vh)" />
+      </template>
+      <template #thumbnail="slotProps">
+        <img :src="slotProps.item.displayThumb" alt="" class="max-h-14 md:max-h-24 object-cover px-2 aspect-video" />
+      </template>
+      <template #caption="slotProps">
+        <div v-if="slotProps.item.title">
+          <div class="mb-1 font-bold">{{ slotProps.item.title }}</div>
+          <p class="text-sm m-0">{{ slotProps.item.alt }}</p>
+        </div>
+      </template>
+    </Galleria>
+  </div>
+</template>
+
 <style scoped>
 .edit-button {
   top: 5px;
   left:5px;
-  /* width: 30px; */
   height: 30px;
   padding: 0 5px;
   font-size: 14px;

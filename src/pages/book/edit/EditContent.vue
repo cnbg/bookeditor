@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useToast } from 'primevue/usetoast'
@@ -12,6 +12,93 @@ const toast = useToast()
 const confirm = useConfirm()
 const router = useRouter()
 const editMenu = ref(null)
+const resolvedCoverPath = ref('')
+
+// Helper function to check if string is base64 data URL
+const isBase64DataUrl = (str) => {
+  if (!str) return false;
+  // Check if it's a data URL with base64 encoding
+  return str.startsWith('data:') && str.includes('base64,');
+};
+
+// Helper function to modify path (similar to PptViewer)
+const modifyPath = async (path) => {
+  if (!path) return '';
+  try {
+    const isPackaged = await window.electron.isPackaged();
+    if (isPackaged) {
+      // Remove 'src' from the beginning of the path for packaged app
+      return path.replace(/^\/src\//, '/');
+    }
+    return path;
+  } catch (error) {
+    console.error('Error checking package status:', error);
+    return path;
+  }
+};
+
+// Helper function to resolve file path (similar to PptViewer)
+const resolveFilePath = async (filePath) => {
+  if (!filePath) return '';
+  
+  try {
+    const modifiedPath = await modifyPath(filePath);
+    const isPackaged = await window.electron.isPackaged();
+    
+    if (!isPackaged) {
+      // Development mode - ensure path starts with /src
+      if (modifiedPath.startsWith('/data/')) {
+        return `/src${modifiedPath}`;
+      }
+      return modifiedPath;
+    } else {
+      // Packaged mode - resolve to file:// URL
+      const resolvedPath = await window.electron.resolvePath(modifiedPath);
+      return `file:///${resolvedPath.replace(/\\/g, '/')}`;
+    }
+  } catch (error) {
+    console.error('Error resolving path:', error);
+    return filePath;
+  }
+};
+
+// Function to resolve cover image path
+const resolveCoverPath = async () => {
+  if (bookSt.book?.cover) {
+    try {
+      // Check if it's already a base64 data URL
+      if (isBase64DataUrl(bookSt.book.cover)) {
+        resolvedCoverPath.value = bookSt.book.cover;
+        console.log('Cover is base64 data URL, using directly');
+        return;
+      }
+      
+      // Otherwise, treat it as a file path and resolve it
+      const resolved = await resolveFilePath(bookSt.book.cover);
+      resolvedCoverPath.value = resolved;
+      console.log('Resolved cover path in EditContent:', {
+        original: bookSt.book.cover,
+        resolved: resolved,
+        isBase64: false
+      });
+    } catch (error) {
+      console.error('Error resolving cover path:', error);
+      resolvedCoverPath.value = bookSt.book.cover; // Fallback to original
+    }
+  } else {
+    resolvedCoverPath.value = '';
+  }
+};
+
+// Initialize on mount
+onMounted(async () => {
+  await resolveCoverPath();
+});
+
+// Watch for changes in book cover
+watch(() => bookSt.book?.cover, async () => {
+  await resolveCoverPath();
+});
 
 const toggleEditMenu = (event) => {
   editMenu.value.toggle(event)
@@ -111,8 +198,8 @@ const items = ref([
       <template #header>
         <div> &nbsp;</div>
       </template>
-      <div v-if="bookSt.book.cover" style="height: calc(100vh - 210px)" class="p-8">
-        <img :src="bookSt.book.cover" class="w-full h-full object-contain" />
+      <div v-if="resolvedCoverPath" style="height: calc(100vh - 210px)" class="p-8">
+        <img :src="resolvedCoverPath" class="w-full h-full object-contain" />
       </div>
     </Panel>
   </div>

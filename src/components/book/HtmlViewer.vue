@@ -25,54 +25,96 @@ const editorConfig = ref(getEditorConfig(userSt.darkMode));
 const editing = ref(false);
 const editedContent = ref(props.html);
 const originalContent = ref(props.html);
+const processedHtml = ref('');
 let editorInstance = null;
 const containerBackgroundColor = ref('');
 const textBackgroundColor = ref('');
-const processedHtml = ref('');
 
-// Process HTML to fix image paths for display
-const processHtmlForDisplay = async (html) => {
-  if (!html) return '';
-  
-  const isPackaged = await window.electron.isPackaged();
-  
-  if (!isPackaged) {
-    return html;
-  }
-  
-  // Fix image paths for packaged app display
-  let processedContent = html;
-  const imgRegex = /src="([^"]*\/data\/images\/[^"]*)"/g;
-  let match;
-  const pathPromises = [];
-  
-  while ((match = imgRegex.exec(html)) !== null) {
-    const originalPath = match[1];
-    pathPromises.push(
-      window.electron.resolvePath(originalPath).then(resolvedPath => ({
-        original: originalPath,
-        resolved: `file:///${resolvedPath.replace(/\\/g, '/')}`
-      })).catch(error => {
-        console.warn('Could not resolve image path:', originalPath, error);
-        return null;
-      })
-    );
-  }
-  
-  const resolvedPaths = await Promise.all(pathPromises);
-  
-  resolvedPaths.forEach(pathMapping => {
-    if (pathMapping) {
-      processedContent = processedContent.replace(pathMapping.original, pathMapping.resolved);
-    }
-  });
-  
-  return processedContent;
+// Helper function to check if string is base64 data URL
+const isBase64DataUrl = (str) => {
+  if (!str || typeof str !== 'string') return false;
+  return str.startsWith('data:') && str.includes('base64,');
 };
 
-// Update processed HTML when props change
-watch(() => props.html, async (newVal) => {
-  processedHtml.value = await processHtmlForDisplay(newVal);
+// Helper function to modify path
+const modifyPath = async (path) => {
+  if (!path) return '';
+  try {
+    const packaged = await window.electron.isPackaged();
+    if (packaged) {
+      // Remove 'src' from the beginning of the path for packaged app
+      return path.replace(/^\/src\//, '/');
+    }
+    return path;
+  } catch (error) {
+    console.error('Error checking package status:', error);
+    return path;
+  }
+};
+
+// Helper function to resolve file path
+const resolveFilePath = async (filePath) => {
+  if (!filePath) return '';
+  
+  try {
+    const modifiedPath = await modifyPath(filePath);
+    const packaged = await window.electron.isPackaged();
+    
+    if (!packaged) {
+      // Development mode - ensure path starts with /src
+      if (modifiedPath.startsWith('/data/')) {
+        return `/src${modifiedPath}`;
+      }
+      return modifiedPath;
+    } else {
+      // Packaged mode - resolve to file:// URL
+      const resolvedPath = await window.electron.resolvePath(modifiedPath);
+      return `file:///${resolvedPath.replace(/\\/g, '/')}`;
+    }
+  } catch (error) {
+    console.error('Error resolving path:', error);
+    return filePath;
+  }
+};
+
+// Function to process HTML content and resolve image paths
+const processHtmlContent = async (htmlContent) => {
+  if (!htmlContent) return '';
+  
+  try {
+    // Create a temporary DOM element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Find all img elements
+    const images = tempDiv.querySelectorAll('img');
+    
+    // Process each image
+    for (const img of images) {
+      const src = img.getAttribute('src');
+      if (src && !isBase64DataUrl(src) && !src.startsWith('blob:') && !src.startsWith('http')) {
+        try {
+          const resolvedSrc = await resolveFilePath(src);
+          img.setAttribute('src', resolvedSrc);
+          console.log('Resolved image in HTML:', { original: src, resolved: resolvedSrc });
+        } catch (error) {
+          console.error('Error resolving image path in HTML:', error);
+        }
+      }
+    }
+    
+    return tempDiv.innerHTML;
+  } catch (error) {
+    console.error('Error processing HTML content:', error);
+    return htmlContent;
+  }
+};
+
+// Watch for HTML changes and process them
+watch(() => props.html, async (newHtml) => {
+  processedHtml.value = await processHtmlContent(newHtml);
+  editedContent.value = newHtml;
+  originalContent.value = newHtml;
 }, { immediate: true });
 
 watch(() => userSt.darkMode, (newVal) => {
@@ -108,7 +150,6 @@ function getEditorConfig(isDarkMode) {
         const fileExtension = blobInfo.filename().split('.').pop() || 'png';
         const fileName = `image_${Date.now()}.${fileExtension}`;
         const reader = new FileReader();        
-        
         reader.onload = async function() {
           try {
             const base64Data = reader.result.split(',')[1];
@@ -116,38 +157,31 @@ function getEditorConfig(isDarkMode) {
               fileContent: base64Data,
               fileName: fileName
             });            
-            
             if (response.success) {
               let filePath = response.filePath;
-              
-              // Fix path separators
               if (filePath.includes('\\')) {
                 filePath = filePath.replace(/\\/g, '/');
               }
               
-              // Convert the path to a proper format for the built app
-              const isPackaged = await window.electron.isPackaged();
-              let finalPath;
-              
-              if (isPackaged) {
-                // For packaged app, we need to resolve the path properly
-                const resolvedPath = await window.electron.resolvePath(filePath);
-                // Convert to file:// URL for TinyMCE to display properly
-                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
-              } else {
-                // For development, use the relative path as-is
-                finalPath = filePath;
+              // Normalize the path for storage
+              const packaged = await window.electron.isPackaged();
+              let storedPath = filePath;
+              if (packaged && !filePath.startsWith('/data')) {
+                storedPath = filePath.replace(/.*\/data/, '/data');
               }
               
-              console.log('Image saved successfully:', {
-                originalPath: filePath,
-                resolvedPath: finalPath,
-                isPackaged: isPackaged
+              // Resolve the path for immediate display in editor
+              const displayPath = await resolveFilePath(storedPath);
+              
+              console.log('Image upload paths:', {
+                original: filePath,
+                stored: storedPath,
+                display: displayPath
               });
               
-              success(finalPath);
+              // Return the display path to TinyMCE for immediate showing
+              success(displayPath);
               
-              // Replace blob URLs with the actual file path after a short delay
               setTimeout(() => {
                 const editor = tinymce.get('editor');
                 if (editor) {
@@ -156,7 +190,7 @@ function getEditorConfig(isDarkMode) {
                   if (blobRegex.test(content)) {
                     content = content.replace(blobRegex, function(match, blobUrl) {
                       if (blobUrl === blobInfo.blobUri()) {
-                        return `src="${finalPath}"`;
+                        return `src="${displayPath}"`;
                       }
                       return match;
                     });
@@ -165,20 +199,15 @@ function getEditorConfig(isDarkMode) {
                 }
               }, 100);
             } else {
-              console.error('Image upload failed:', response.message);
               failure('Image upload failed: ' + response.message);
             }
           } catch (error) {
-            console.error('Image upload error:', error);
             failure('Image upload error: ' + error.message);
           }
         };        
-        
         reader.onerror = function() {
-          console.error('Could not read image file');
           failure('Could not read image file');
         };        
-        
         reader.readAsDataURL(blob);
       } catch (error) {
         console.error('Error in image handler:', error);
@@ -195,16 +224,28 @@ function getEditorConfig(isDarkMode) {
           try {
             const response = await window.electron.uploadFile(file.path, file.name);
             if (response.success) {
-              // Resolve path for packaged app
-              const isPackaged = await window.electron.isPackaged();
-              let finalPath = response.filePath;
-              
-              if (isPackaged) {
-                const resolvedPath = await window.electron.resolvePath(finalPath);
-                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              let filePath = response.filePath;
+              if (filePath.includes('\\')) {
+                filePath = filePath.replace(/\\/g, '/');
               }
               
-              cb(finalPath, { title: file.name });
+              // Normalize the path for storage
+              const packaged = await window.electron.isPackaged();
+              let storedPath = filePath;
+              if (packaged && !filePath.startsWith('/data')) {
+                storedPath = filePath.replace(/.*\/data/, '/data');
+              }
+              
+              // Resolve the path for display in editor
+              const displayPath = await resolveFilePath(storedPath);
+              
+              console.log('File picker paths:', {
+                original: filePath,
+                stored: storedPath,
+                display: displayPath
+              });
+              
+              cb(displayPath, { title: file.name });
             } else {
               console.error('Error uploading file:', response.message);
             }
@@ -223,16 +264,21 @@ function getEditorConfig(isDarkMode) {
           try {
             const response = await window.electron.uploadVideo(file.path, file.name);
             if (response.success) {
-              // Resolve path for packaged app
-              const isPackaged = await window.electron.isPackaged();
               let finalPath = response.filePath;
-              
-              if (isPackaged) {
-                const resolvedPath = await window.electron.resolvePath(finalPath);
-                finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
+              if (finalPath.includes('\\')) {
+                finalPath = finalPath.replace(/\\/g, '/');
               }
               
-              cb(finalPath, { title: file.name });
+              // Normalize the path for storage
+              const packaged = await window.electron.isPackaged();
+              let storedPath = finalPath;
+              if (packaged && !finalPath.startsWith('/data')) {
+                storedPath = finalPath.replace(/.*\/data/, '/data');
+              }
+              
+              // Resolve for display
+              const displayPath = await resolveFilePath(storedPath);
+              cb(displayPath, { title: file.name });
             } else {
               console.error('Error uploading video:', response.message);
             }
@@ -271,13 +317,9 @@ function getEditorConfig(isDarkMode) {
           console.error('Failed to load translation file:', error);
         });
         if (editing.value) {
-          // Process content for editor
-          let contentForEditor = editedContent.value;
-          const isPackaged = await window.electron.isPackaged();
-          if (isPackaged) {
-            contentForEditor = await fixImagePathsForEditor(contentForEditor);
-          }
-          editor.setContent(contentForEditor);
+          // Process the content before setting it in the editor
+          const processedContent = await processHtmlContent(editedContent.value);
+          editor.setContent(processedContent);
         }
       });
       editor.on('change', () => {
@@ -300,34 +342,10 @@ function getEditorConfig(isDarkMode) {
   };
 }
 
-// Helper function to fix image paths for TinyMCE editor
-async function fixImagePathsForEditor(content) {
-  const isPackaged = await window.electron.isPackaged();
-  if (!isPackaged) return content;
-  
-  // Find all image src attributes
-  const imgRegex = /src="([^"]*\/data\/images\/[^"]*)"/g;
-  let match;
-  let updatedContent = content;
-  
-  while ((match = imgRegex.exec(content)) !== null) {
-    const originalPath = match[1];
-    try {
-      const resolvedPath = await window.electron.resolvePath(originalPath);
-      const finalPath = `file:///${resolvedPath.replace(/\\/g, '/')}`;
-      updatedContent = updatedContent.replace(originalPath, finalPath);
-    } catch (error) {
-      console.warn('Could not resolve image path:', originalPath, error);
-    }
-  }
-  
-  return updatedContent;
-}
-
-const startEdit = async () => {
+const startEdit = () => {
   editing.value = true;
   editedContent.value = props.html;
-  await initTinyMCE();
+  initTinyMCE();
 };
 
 const cancelEdit = () => {
@@ -336,7 +354,34 @@ const cancelEdit = () => {
   destroyTinyMCE();
 };
 
-const saveEdit = () => {
+const normalizeImagePath = async (path) => {
+  if (!path) return path;
+  
+  try {
+    const packaged = await window.electron.isPackaged();
+    if (packaged) {
+      // For packaged app, convert any absolute path back to /data/... format
+      if (path.startsWith('file:///')) {
+        const match = path.match(/\/data\/images\/[^"]+/);
+        if (match) {
+          return match[0];
+        }
+      }
+      return path.replace(/^\/src\//, '/');
+    } else {
+      // For dev mode, ensure path starts with /src/data
+      if (path.startsWith('/data/')) {
+        return `/src${path}`;
+      }
+      return path;
+    }
+  } catch (error) {
+    console.error('Error normalizing path:', error);
+    return path;
+  }
+};
+
+const saveEdit = async () => {
   if (editedContent.value.trim() === '') {
     originalContent.value = '';
     editing.value = false;
@@ -364,9 +409,23 @@ const saveEdit = () => {
       link.style.textDecoration = 'underline';
     });
 
+    // Normalize image paths back to relative paths before saving
+    const images = doc.querySelectorAll('img');
+    for (const img of images) {
+      const src = img.getAttribute('src');
+      if (src) {
+        const normalizedSrc = await normalizeImagePath(src);
+        img.setAttribute('src', normalizedSrc);
+        console.log('Normalized image path for saving:', { original: src, normalized: normalizedSrc });
+      }
+    }
+
     editedContent.value = doc.body.innerHTML;
     editing.value = false;
     originalContent.value = editedContent.value;
+    
+    // Update processed HTML for display
+    processedHtml.value = await processHtmlContent(editedContent.value);
   }
   const updatedContent = {
     html: editedContent.value,
@@ -379,7 +438,7 @@ const saveEdit = () => {
 
 async function initTinyMCE() {
   const baseUrl = await getTinyMCEBaseUrl();
-  setTimeout(() => {
+  setTimeout(async () => {
     tinymce.init({
       ...editorConfig.value,
       base_url: baseUrl,
@@ -405,8 +464,8 @@ onMounted(async () => {
     }
   }
   
-  // Process HTML for initial display
-  processedHtml.value = await processHtmlForDisplay(props.html);
+  // Process HTML content for display
+  processedHtml.value = await processHtmlContent(props.html);
   
   const baseUrl = await getTinyMCEBaseUrl();
   tinymce.init({
@@ -415,12 +474,13 @@ onMounted(async () => {
     target: document.getElementById('editor'),
     setup: (editor) => {
       editorInstance = editor;
-      editor.on('init', () => {
+      editor.on('init', async () => {
         import('../../tinymce/langs/ru').catch((error) => {
           console.error('Failed to load translation file:', error);
         });
         if (editing.value) {
-          editor.setContent(editedContent.value);
+          const processedContent = await processHtmlContent(editedContent.value);
+          editor.setContent(processedContent);
         }
       });
       editor.on('change', () => {

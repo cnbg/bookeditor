@@ -79,11 +79,8 @@ const resolveFilePath = async (filePath) => {
   try {
     const modifiedPath = await modifyPath(filePath);
     const isPackaged = await window.electron.isPackaged();
-    console.log('isPackaged', isPackaged);
     
     const resolvedPath = await window.electron.resolvePath(modifiedPath);
-    console.log('Modified path:', modifiedPath);
-    console.log('Resolved path:', resolvedPath);
     return resolvedPath;
   } catch (error) {
     console.error('Error resolving path:', error);
@@ -97,9 +94,7 @@ onMounted(async () => {
 
 watch(() => props.pptFilePath, async (newPath) => {
   if (newPath) {
-    console.log('Original PPT path:', newPath);
     const modifiedPath = await modifyPath(newPath);
-    console.log('Modified PPT path:', modifiedPath);
     pptFileName.value = getFileName(modifiedPath);
     resolvedPptFilePath.value = await resolveFilePath(modifiedPath);
   } else {

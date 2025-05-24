@@ -128,13 +128,13 @@ if (!gotTheLock) {
         const resourcesPath = process.resourcesPath;
         const appPath = app.getAppPath();
         let savePath;
-    
+
         if (!app.isPackaged) {
             savePath = path.join(appPath, 'src', 'data', subdir, fileName);
         } else {
             savePath = path.join(resourcesPath, 'data', subdir, fileName);
         }
-    
+
         try {
             await fsPromises.mkdir(path.dirname(savePath), { recursive: true });
             
@@ -156,26 +156,26 @@ if (!gotTheLock) {
             
             await fsPromises.writeFile(savePath, buffer);
             
-            // Calculate relative path for the response
+            // Calculate relative path for the response - DON'T include file:// protocol here
             let relativePath;
             if (app.isPackaged) {
-                // For packaged app
-                relativePath = path.relative(resourcesPath, savePath);
+                // For packaged app - use data/subdir/filename format
+                relativePath = `data/${subdir}/${fileName}`;
             } else {
-                // For development
-                relativePath = path.relative(appPath, savePath);
+                // For development - use src/data/subdir/filename format
+                relativePath = `src/data/${subdir}/${fileName}`;
             }
             
             // Make sure path uses forward slashes for consistency
-            relativePath = `/${relativePath.replace(/\\/g, '/')}`;
+            relativePath = relativePath.replace(/\\/g, '/');
             
             console.log(`File saved successfully: ${savePath}`);
             console.log(`Relative path: ${relativePath}`);
             
             return { 
                 success: true, 
-                filePath: relativePath,
-                fullPath: savePath // Include full path for debugging
+                filePath: `/${relativePath}`, // Add leading slash but no file:// protocol
+                fullPath: savePath
             };
         } catch (error) {
             console.error(`Error saving file to ${savePath}:`, error);
@@ -797,32 +797,34 @@ if (!gotTheLock) {
     }
     });
 
-    // Also update the existing resolve-path handler to be more robust
     ipcMain.handle('resolve-path', (event, filePath) => {
         try {
             let resolvedPath;
             
+            // Remove any existing file:// protocol
+            let cleanPath = filePath.replace(/^file:\/\/\//, '').replace(/^file:\/\//, '');
+            
             if (app.isPackaged) {
                 // For packaged app
-                if (filePath.startsWith('/')) {
+                if (cleanPath.startsWith('/')) {
                     // Remove leading slash for proper path joining
-                    const cleanPath = filePath.substring(1);
-                    resolvedPath = path.join(process.resourcesPath, cleanPath);
-                } else {
-                    resolvedPath = path.join(process.resourcesPath, filePath);
+                    cleanPath = cleanPath.substring(1);
                 }
+                resolvedPath = path.join(process.resourcesPath, cleanPath);
             } else {
                 // For development
-                if (filePath.startsWith('/src/')) {
-                    resolvedPath = path.join(app.getAppPath(), filePath.substring(1));
-                } else if (filePath.startsWith('/')) {
-                    resolvedPath = path.join(app.getAppPath(), 'src', filePath.substring(1));
+                if (cleanPath.startsWith('src/')) {
+                    resolvedPath = path.join(app.getAppPath(), cleanPath);
+                } else if (cleanPath.startsWith('/src/')) {
+                    resolvedPath = path.join(app.getAppPath(), cleanPath.substring(1));
+                } else if (cleanPath.startsWith('/')) {
+                    resolvedPath = path.join(app.getAppPath(), 'src', cleanPath.substring(1));
                 } else {
-                    resolvedPath = path.join(app.getAppPath(), filePath);
+                    resolvedPath = path.join(app.getAppPath(), cleanPath);
                 }
             }
             
-            // Normalize the path
+            // Normalize the path and return without file:// protocol
             resolvedPath = path.normalize(resolvedPath);
             
             console.log(`🔍 Path resolution: ${filePath} -> ${resolvedPath}`);

@@ -117,8 +117,6 @@ const resolveFilePath = async (filePath) => {
     const modifiedPath = await modifyPath(filePath);
     const isPackaged = await window.electron.isPackaged();
     const resolvedPath = await window.electron.resolvePath(modifiedPath);
-    console.log('Modified video path:', modifiedPath);
-    console.log('Resolved video path:', resolvedPath);
     return resolvedPath;
   } catch (error) {
     console.error('Error resolving path:', error);
@@ -134,7 +132,6 @@ onMounted(async () => {
 
 watch(() => props.video?.path, async (newPath) => {
   if (newPath) {
-    console.log('Original video path:', newPath);
     resolvedVideoPath.value = await resolveFilePath(newPath);
   } else {
     resolvedVideoPath.value = '';
@@ -146,7 +143,7 @@ const handleMounted = (payload) => {
 };
 
 const handleEvent = (log) => {
-  console.log('Player event:', log);
+  // console.log('Player event:', log);
 };
 
 const startEdit = () => {
