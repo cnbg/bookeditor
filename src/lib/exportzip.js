@@ -63,12 +63,62 @@ export async function exportBookAsZip(book) {
     return pathParts[pathParts.length - 1];
   };
 
+  // Helper function to extract image paths from HTML content
+  const extractImagePathsFromHTML = (htmlContent) => {
+    if (!htmlContent) return [];
+    
+    const imagePaths = [];
+    
+    // Create a temporary div to parse HTML safely
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Find all img elements
+    const images = tempDiv.querySelectorAll('img');
+    
+    images.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src && !src.startsWith('data:') && !src.startsWith('http')) {
+        // Only process local file paths, not data URLs or external URLs
+        imagePaths.push(src);
+      }
+    });
+    
+    return imagePaths;
+  };
+
+  // Helper function to update HTML content with new image paths
+  const updateHTMLImagePaths = (htmlContent, pathMapping) => {
+    if (!htmlContent) return htmlContent;
+    
+    // Create a temporary div to parse HTML safely
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = htmlContent;
+    
+    // Find all img elements and update their src attributes
+    const images = tempDiv.querySelectorAll('img');
+    
+    images.forEach(img => {
+      const src = img.getAttribute('src');
+      if (src && pathMapping.has(src)) {
+        img.setAttribute('src', pathMapping.get(src));
+      }
+    });
+    
+    return tempDiv.innerHTML;
+  };
+
   const updateBookPaths = (book, pathMapping) => {
     if (book.chapters) {
       book.chapters.forEach(chapter => {
         if (chapter.blocks) {
           chapter.blocks.forEach(block => {
-            // Update image paths
+            // Update HTML content with embedded images
+            if (block.type === 'html' && block.content && block.content.html) {
+              block.content.html = updateHTMLImagePaths(block.content.html, pathMapping);
+            }
+            
+            // Update standalone image paths
             if (block.type === 'image' && block.content.html && Array.isArray(block.content.html)) {
               block.content.html.forEach(image => {
                 if (image.src && pathMapping.has(image.src)) {
@@ -174,11 +224,27 @@ export async function exportBookAsZip(book) {
     }
   };
 
-  // Process images from chapters
+  // Process images from HTML content in blocks
   if (book.chapters) {
     book.chapters.forEach(chapter => {
       if (chapter.blocks) {
         chapter.blocks.forEach(block => {
+          // Process HTML blocks that might contain embedded images
+          if (block.type === 'html' && block.content && block.content.html) {
+            const imagePaths = extractImagePathsFromHTML(block.content.html);
+            
+            imagePaths.forEach(imagePath => {
+              const fetchPromise = copyFileToZip(imagePath, 'images').then(newPath => {
+                if (newPath) {
+                  pathMapping.set(imagePath, newPath);
+                  console.log(`🖼️ Mapped HTML image: ${imagePath} -> ${newPath}`);
+                }
+              });
+              fetchPromises.push(fetchPromise);
+            });
+          }
+          
+          // Process standalone image blocks
           if (block.type === 'image' && block.content.html && Array.isArray(block.content.html)) {
             block.content.html.forEach(image => {
               if (typeof image.src === 'string') {
