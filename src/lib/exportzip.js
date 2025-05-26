@@ -320,14 +320,24 @@ export async function exportBookAsZip(book) {
       if (chapter.blocks) {
         chapter.blocks.forEach(block => {
           if ((block.type === 'ppt' || block.type === 'powerpoint')) {
-            const originalPath = block.content.html?.path || block.content.path;
+            // Fix: Check multiple possible path locations
+            const originalPath = block.content.html?.path || 
+                                block.content.path || 
+                                block.path;
+            
             if (originalPath) {
+              console.log(`🎨 Processing PowerPoint file: ${originalPath}`);
               const fetchPromise = copyFileToZip(originalPath, 'ppt').then(newPath => {
                 if (newPath) {
                   pathMapping.set(originalPath, newPath);
+                  console.log(`✅ Mapped PowerPoint: ${originalPath} -> ${newPath}`);
+                } else {
+                  console.warn(`⚠️ Failed to copy PowerPoint file: ${originalPath}`);
                 }
               });
               fetchPromises.push(fetchPromise);
+            } else {
+              console.warn(`⚠️ PowerPoint block has no valid path:`, block);
             }
           }
         });
